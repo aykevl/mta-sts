@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+
+<html>
+	<head>
+		<title>Online MTA-STS testing tool</title>
+		<meta charset="utf-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+		<link rel="stylesheet" href="mta-sts.css"/>
+		<script src="mta-sts.js" src="mta-sts.js" defer></script>
+	</head>
+	<body>
+		<div class="container">
+			<h1>Online MTA-STS testing tool</h1>
+
+			<!-- pattern: https://stackoverflow.com/a/106223/559350 -->
+			<p>
+				<form class="domain input-group input-group-lg">
+					<input placeholder="gmail.com" type="text" class="form-control" required pattern="(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])">
+					<span class="input-group-btn">
+						<button class="btn btn-primary">Check!</button>
+					</span>
+				</form>
+			</p>
+
+			<div id="result">
+			</div>
+
+			<p><a href="https://datatracker.ietf.org/doc/draft-ietf-uta-mta-sts/">MTA-STS</a> is a new standard (<a href="https://github.com/mrisher/smtp-sts">still in development</a>) that makes it possible to send downgrade-resistant email over SMTP. In that sense, it is like an alternative to DANE. It does this by piggybacking on the browser Certificate Authority model.</p>
+
+			<p>Note: this testing tool is based on the <a href="https://github.com/mrisher/smtp-sts/blob/master/mta-sts.md">current draft specification</a> as of august 2, 2017. It is very likely some parts of it will change before the final publication.</p>
+
+			<p class="mb-0">To enable Strict Transport Security on your mailserver configure the following things:</p>
+
+			<ul>
+				<li>Check that your host has <a href="https://en.internet.nl/test-mail/">properly configured STARTTLS</a></li>
+				<li>Add a DNS TXT record at <code>_mta-sts</code> on your domain, e.g. <code>_mta-sts.example.com</code>, with something like <code class="text-nowrap">v=STSv1; id=20160831085700Z</code></li>
+				<li>Add a subdomain <code>mta-sts</code> to your domain (note the lack of an underscore) and serve a policy file on <code>https://mta-sts.example.com/.well-known/mta-sts.policy</code>. Here is an example policy file:
+					<pre class="ml-4 mt-2 mb-2">
+version: STSv1
+mode: enforce
+max_age: 10368000
+mx: mail.example.com
+mx: .example.net
+mx: backupmx.example.com</pre>
+				</li>
+				<li>Test this mail domain using this or another tool.</li>
+			</ul>
+
+			<p class="mb-0">TODO:</p>
+			<ul>
+				<li>Add test for <a href="https://github.com/mrisher/smtp-sts/blob/master/reporting.md">reporting feature</a>.</li>
+				<li>Add support for the older JSON based policy.</li>
+				<li>More testing.</li>
+			</ul>
+
+			<p>Created by: <a href="https://aykevl.nl/" rel="author">Ayke</a> (<a href="https://github.com/aykevl/mta-sts">source code</a>).
+		</div>
+
+		<div id="templates">
+			<div class="loading">
+				<p class="alert alert-info" role="alert">Loading...</p>
+			</div>
+			<div class="rate-limit">
+				<p class="alert alert-danger" role="alert">Rate limited!</p>
+			</div>
+			<div class="other-error">
+				<p class="alert alert-danger" role="alert">Unknown error in the server.</p>
+			</div>
+		</div>
+	</body>
+</html>

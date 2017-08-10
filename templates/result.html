@@ -1,0 +1,226 @@
+<p>Result for: <strong>{{ report.domain }}</strong></p>
+{% if report.valid %}
+{% if report.hasWarnings %}
+<p class="alert alert-warning" role="alert">Looks okay, but there are warnings.</p>
+{% else %}{# valid, no warnings #}
+<p class="alert alert-success" role="alert">Everything is okay!</p>
+{% endif %}{# warnings? #}
+<p class="alert alert-info" role="alert"><strong>Note</strong>: even though the server appears to be set up correctly for MTA-STS, I recommend using a test like <a href="https://www.ssllabs.com/ssltest/analyze.html?d={{ report.domain }}&latest">Qualys SSL Labs</a> to analyze the HTTP host and to <a href="https://en.internet.nl/mail/{{ report.domain }}/">test the mail host</a>.</p>
+{% elif report.errorName %}{# global error #}
+<p class="alert alert-danger" role="alert">
+	<strong>Error</strong>:
+	{% if report.errorName == "invalid-domain" %}
+	Invalid domain name.
+	{% else %}
+	Unknown: {{ report.errorName }}.
+	{% endif %}
+</p>
+{% else %}{# specific error(s) #}
+<p class="alert alert-danger" role="alert"><strong>Error</strong>: some tests failed, see below.</p>
+{% endif %}{# valid? #}
+
+{% if not report.errorName %}{# not a global error #}
+<table class="table" id="report">
+	<tr>
+		<th>
+			TXT record<br/>
+			{% if report.dns.valid %}
+			<span class="icon-check icon-big">✔</span>
+			{% else %}
+			<span class="icon-no icon-big">✖</span>
+			{% endif %}
+		</th>
+		<td>
+			<p>
+				Policy:
+				{% if report.dns.value %}
+					<code>{{ report.dns.value }}</code>
+				{% else %}
+					none
+				{% endif %}
+			</p>
+			<p>
+			{% if not report.dns.valid %}
+			<strong>Error</strong>:
+			{% if report.dns.errorName == "invalid" %}
+			Cannot resolve DNS: invalid syntax for domain.
+			{% elif report.dns.errorName == "no-domain" %}
+			Cannot resolve DNS: domain does not exist.
+			{% elif report.dns.errorName == "no-answer" %}
+			Cannot resolve DNS: no answer.
+			{% elif report.dns.errorName == "timeout" %}
+			Cannot resolve DNS: timeout.
+			{% elif report.dns.errorName == "multiple-records" %}
+			Multiple TXT records have been returned. This is disallowed by the standard.
+			<ul>
+				{% for record in report.errorValue %}
+				<li><code>{{ record }}</code></li>
+				{% endfor %}
+			</ul>
+			{% elif report.dns.errorName == "no-valid-txt-record" %}
+			Some TXT records were found, but none of them started with the magic string <code>v=STSv1;</code>:
+			<ul>
+				{% for record in report.errorValue %}
+				<li><code>{{ record }}</code></li>
+				{% endfor %}
+			</ul>
+			{% elif report.dns.errorName == "no-txt-record" %}
+			No TXT records have been found.
+			{% elif report.dns.errorName == "invalid-version-prefix" %}
+			Invalid version prefix. Must be <code>v=STSv1</code>.
+			{% elif report.dns.errorName == "invalid-id" %}
+			The <code>id</code> value (<code>{{ report.errorValue }}</code>) may only contain alphanumeric characters and must be 1-32 characters long.
+			{% elif report.dns.errorName == "invalid-ext-field" %}
+			There is an extra field <code>{{ report.dns.errorValue }}</code> which is invalid.
+			{% else %}
+			Unknown error: {{ report.dns.errorName }}
+			{% endif %}{# report.dns.errorName #}
+			{% endif %}{# report.dns.valid #}
+
+			{% if report.dns.warnings %}
+			<p><strong>Warnings</strong>:</p>
+			<ul>
+				{% for warning in report.dns.warnings %}
+				<li>
+					{% if warning.message == "multiple-strings-undefined" %}
+					A TXT record contains multiple strings. This probably means it is very long - over 255 bytes. The current MTA-STS standard doesn't specify what should happen with multiple strings, but like similar standards (<a href="https://tools.ietf.org/html/rfc4408#section-3.1.3">SPF</a>, <a href="https://tools.ietf.org/html/rfc6376#section-3.6.2.2">DKIM</a>) they will probably be concatenated together. See <a href="https://github.com/mrisher/smtp-sts/issues/168">issue #168</a> for details.
+					{% elif warning.message == "unknown-ext-field" %}
+					There is an unrecognized field <code>{{ warning.value }}</code> in the MX record. While this is not a problem and well-behaved parsers should ignore the field, it may be best to remove it just to be sure.
+					{% else %}
+					Unknown warning: {{ warning.message }}
+					{% endif %}{# warning.message #}
+				</li>
+				{% endfor %}{# report.dns.warnings #}
+			</ul>
+			{% endif %}{# report.dns.warnings #}
+			</p>
+		</td>
+	</tr>
+	<tr>
+		<th>
+			Policy file<br/>
+			{% if report.policy.valid %}
+			<span class="icon-check icon-big">✔</span>
+			{% else %}
+			<span class="icon-no icon-big">✖</span>
+			{% endif %}
+		</th>
+		<td>
+			{% if report.policy.value %}
+			<p>
+			Policy: <a href="{{ report.policy.value.url }}">{{ report.policy.value.url }}</a>
+			</p>
+			<pre class="mb-0 ml-4">{{ report.policy.value.data }}</pre>
+			{% endif %}
+			{% if not report.policy.valid %}
+			<strong>Error</strong>:
+			{% if report.policy.errorName == "not-found" %}
+			Policy file not found.
+			{% elif report.policy.errorName == "connect" %}
+			Failed to connect to the HTTPS server.
+			{% elif report.policy.errorName == "request" %}
+			Failed to request the policy file from the HTTPS server.
+			{% elif report.policy.errorName == "http-status" %}
+			Got a non-OK status code from the server: {{ report.policy.errorValue }}.
+			{% elif report.policy.errorName == "policy-not-found" %}
+			Policy file not found (HTTP error 404).
+			{% elif report.policy.errorName == "host-not-found" %}
+			Cannot resolve host <code>{{ report.policy.errorValue }}</code>: does not exist.
+			{% elif report.policy.errorName == "dns-error" %}
+			Error while resolving <code>{{ report.policy.errorValue }}</code>.
+			{% elif report.policy.errorName == "host-not-found" %}
+			Other error while requesting <code>{{ report.policy.errorValue }}</code>.
+			{% elif report.policy.errorName == "decode-error" %}
+			Failed to decode the policy file from ASCII. The standard doesn't say anything about the encoding, but this is probably an error.
+			{% elif report.policy.errorName == "no-version" %}
+			No <code>version</code> field was specified. It must be set to <code>STSv1</code>.
+			{% elif report.policy.errorName == "invalid-version" %}
+			Invalid <code>version</code> field: the value must be <code>STSv1</code>, not <code>{{ report.policy.errorValue }}</code>.
+			{% elif report.policy.errorName == "no-mode" %}
+			No <code>mode</code> field was specified. It must be set to either <code>enforce</code> or <code>report</code>.
+			{% elif report.policy.errorName == "invalid-mode" %}
+			Invalid <code>mode</code> field: the value must be either <code>enforce</code> or <code>report</code>, not <code>{{ report.policy.errorValue }}</code>.
+			{% elif report.policy.errorName == "no-max-age" %}
+			No <code>max_age</code> field was specified. It must be set to the amount of seconds this policy is valid. The suggested amount is at least in the order of weeks.
+			{% elif report.policy.errorName == "invalid-max-age" %}
+			Invalid <code>max_age</code> field was specified: <code>{{ report.policy.errorValue }}</code>. It must be a non-negative integer. The suggested amount is at least in the order of weeks.
+			{% elif report.policy.errorName == "short-max-age" %}
+			Very short <code>max_age</code> field specified. It is less than a day with {{ report.policy.errorValue }} seconds. The suggested amount is at least in the order of weeks.
+			{% elif report.policy.errorName == "no-mx-entries" %}
+			No <code>mx</code> fields specified. Indicates the hostnames (Common Name or SAN) for which the mail server certificate is valid. At least one of the hostnames specified in the policy must be present in the certificate.
+			{% elif report.policy.errorName == "invalid-mx-entry" %}
+			Invalid <code>mx</code> entry: <code>{{ report.policy.errorValue }}</code>. It must be a well-formed hostname. If it is an Unicode domain name, it has to be a Punycode-encoded domain name.
+			{% else %}
+			Unknown error: {{ report.policy.errorName }}.
+			{% endif %}{# report.policy.errorName #}
+			{% endif %}{# report.policy.valid #}
+
+			{% if report.policy.warnings %}
+			<p><strong>Warnings</strong>:</p>
+			<ul>
+				{% for warning in report.policy.warnings %}
+				<li>
+					{% if warning.message == "invalid-line" %}
+					An invalid line was found in the policy file:<br/>
+					<code>{{ warning.value }}</code>
+					{% elif warning.message == "big-file" %}
+					Polcy file is too big: {{ warning.value }}kB. It is suggested the file shouldn't be bigger than 64kB.
+					{% elif warning.message == "invalid-line" %}
+					Policy file contains an invalid line: {{ warning.value }}. The specification isn't clear on this, but it might result in the policy file not being read on some hosts.
+					{% elif warning.message == "duplicate-key" %}
+					Line with duplicate key found. This line will be ignored by well-behaved parsers.<br/>
+					<code>{{ warning.value.line }}</code>
+					{% elif warning.message == "short-max-age" %}
+					Short <code>max_age</code>: {{ warning.value }} days. The suggested amount is at least in the order of weeks.
+					{% elif warning.message == "unknown-key" %}
+					Unknown key <code>{{ warning.value.key }}</code> with value <code>{{ warning.value.value }}</code>. This key will be ignored in well-behaved parsers.
+					{% else %}
+					Unknown warning: {{ warning.message }}
+					{% endif %}{# warning.message #}
+				</li>
+				{% endfor %}{# report.policy.warnings #}
+			</ul>
+			{% endif %}{# report.policy.warnings #}
+			</p>
+		</td>
+	</tr>
+	<tr>
+		<th>
+			Certificate check<br/>
+			{% if report.mx.valid %}
+			<span class="icon-check icon-big">✔</span>
+			{% else %}
+			<span class="icon-no icon-big">✖</span>
+			{% endif %}
+		</th>
+		<td>
+			{% if report.mx.value %}
+			{% if not report.policy.value.info or not report.policy.value.info.mx %}
+			<p><strong>Note</strong>: No valid policy found so can't test MX servers.</p>
+			{% endif %}
+			<dl>
+				{% for mx in report.mx.value %}
+				<dt>
+					{{ mx.mx }}
+					{% if mx.valid %}<span class="icon-check">✔</span>
+					{% else %}<span class="icon-no">✖</span>
+					{% endif %}
+				</dt>
+				<dd>
+					{% if mx.error %}
+					<strong>Error</strong>: <code>{{ mx.error }}</code><br/>
+					{% endif %}
+					{% for name in mx.certnames %}
+					<code class="text-nowrap">{{ name }}</code>
+					{% endfor %}
+				</dd>
+				{% endfor %}
+			</dl>
+			{% else %}
+			No MX found.
+			{% endif %}
+		</td>
+	</tr>
+</table>
+{% endif %}{# not a global error #}
+<hr/>

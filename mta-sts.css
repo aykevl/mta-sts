@@ -1,0 +1,21 @@
+
+#templates {
+	display: none;
+}
+
+/* override Bootstrap */
+dd {
+	margin-left: 1.5rem;
+}
+
+.icon-check {
+	color: green;
+}
+
+.icon-no {
+	color: red;
+}
+
+.icon-big {
+	font-size: 48px;
+}
