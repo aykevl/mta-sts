@@ -2,6 +2,7 @@
 
 import sys
 import dns.resolver # Debian: python3-dnspython
+import urllib.parse
 import http.client
 import smtplib
 import ssl
@@ -42,28 +43,32 @@ class Report:
         self.domain = domain
         self.hasWarnings = False
         self.dns = Result(self)
+        self.tlsrpt = Result(self)
         self.policy = Result(self)
         self.mx = Result(self)
         self.valid = True
+        self.errorName = None
+        self.errorValue = None
 
-    def error(self, message):
+    def error(self, message, value=None):
         ''' Global error '''
         self.valid = False
         self.errorName = message
+        self.errorValue = value
         return self
 
-def checkDNS(result, domain):
-    fullDomain = '_mta-sts.' + domain
+def retrieveTXTRecord(result, domain, prefix, magic):
+    fullDomain = prefix + '.' + domain
     try:
         answers = dns.resolver.query(fullDomain, 'TXT')
     except dns.resolver.NXDOMAIN:
-        return result.error('no-domain')
+        return result.error('no-domain', fullDomain)
     except dns.resolver.NoAnswer:
-        return result.error('no-answer')
+        return result.error('no-answer', fullDomain)
     except dns.resolver.Timeout:
-        return result.error('timeout')
+        return result.error('timeout', fullDomain)
 
-    # From the RFC draft:
+    # From the RFC draft (MTA-STS):
     #     If multiple TXT records for _mta-sts are returned by the resolver,
     #     records which do not begin with v=STSv1; are discarded. If the number
     #     of resulting records is not one, senders MUST assume the recipient
@@ -72,6 +77,9 @@ def checkDNS(result, domain):
     dnsPolicies = []
     otherResults = []
     for record in answers:
+        if len(record.strings) < 1:
+            # Don't know whether this is allowed, but I keep it here just to be sure.
+            continue
         if len(record.strings) > 1:
             # Undefined in the spec
             # https://github.com/mrisher/smtp-sts/issues/168
@@ -81,10 +89,10 @@ def checkDNS(result, domain):
             data = b''.join(record.strings).decode('ascii')
         else:
             data = ''.join(record.strings)
-        if not data.startswith('v=STSv1;'):
+        if data.startswith(magic):
+            dnsPolicies.append(data)
+        else:
             otherResults.append(data)
-            continue
-        dnsPolicies.append(data)
     if len(dnsPolicies) > 1:
         # TODO provide these results
         return result.error('multiple-records', dnsPolicies)
@@ -93,17 +101,27 @@ def checkDNS(result, domain):
             return result.error('no-valid-txt-record', otherResults)
         else:
             return result.error('no-txt-record')
-    result.value = dnsPolicies[0]
 
-    fields = list(map(lambda s: s.strip(' \t'), re.split('[ \t]*;[ \t]*', dnsPolicies[0])))
+    return dnsPolicies[0]
 
-    if len(fields) < 1 or fields[0] != 'v=STSv1':
+def checkDNS(result, domain):
+    dnsPolicy = retrieveTXTRecord(result, domain, '_mta-sts', 'v=STSv1;')
+    if isinstance(dnsPolicy, Report):
+        # an error was returned
+        return dnsPolicy
+    result.value = dnsPolicy
+
+    fields = list(map(lambda s: s.strip(' \t'), re.split('[ \t]*;[ \t]*', dnsPolicy)))
+
+    if fields[0] != 'v=STSv1':
         # already covered in dns:no-valid-txt-record but checking it anyway
         return result.error('invalid-version-prefix')
 
     # And what if the 'id' field is the 3rd field? This is currently impossible:
     # https://github.com/mrisher/smtp-sts/issues/167
-    if len(fields) < 2 or not fields[1].startswith('id='):
+    if len(fields) < 2:
+        return result.error('invalid-id', '')
+    if not fields[1].startswith('id='):
         return result.error('invalid-id', fields[1][3:])
     idvalue = fields[1][3:]
     # Note: the 'id' value is case-sensitive, and just an identifier - there is
@@ -116,6 +134,37 @@ def checkDNS(result, domain):
         if not re.match('^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,31}=[\x21-\x3a\x3c\x3e-\x7e]{1,}$', field):
             return result.error('invalid-ext-field', field)
         result.warn('unknown-ext-field', field)
+
+def checkReporting(result, domain):
+    dnsPolicy = retrieveTXTRecord(result, domain, '_smtp-tlsrpt', 'v=TLSRPTv1;')
+    if isinstance(dnsPolicy, Report):
+        # an error was returned
+        return dnsPolicy
+    result.value = dnsPolicy
+
+    print(dnsPolicy)
+    fields = list(map(lambda s: s.strip(' \t'), re.split('[ \t]*;[ \t]*', dnsPolicy)))
+
+    if fields[0] != 'v=TLSRPTv1':
+        # already covered in no-valid-txt-record but checking it anyway
+        return result.error('invalid-version-prefix', fields[0])
+    if len(fields) < 2:
+        return result.error('invalid-rua', '')
+    if not fields[1].startswith('rua='):
+        return result.error('invalid-rua', fields[1])
+    rua = fields[1][4:]
+    if ',' in rua or '!' in rua:
+        return result.error('invalid-rua', fields[1])
+    try:
+        url = urllib.parse.urlparse(rua)
+        if url.scheme not in ['mailto', 'http', 'https']:
+            return result.error('invalid-rua', fields[1])
+    except ValueError:
+        return result.error('invalid-rua', fields[1])
+
+    # TODO: check extension fields for syntactical validity, but do that after
+    # the spec has stabilized.
+
 
 def checkPolicyFile(result, domain):
     host = 'mta-sts.'+domain
@@ -216,7 +265,7 @@ def checkMX(result, domain, policyNames=None):
     try:
         answers = dns.resolver.query(domain, 'MX')
     except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.Timeout):
-        return result.error('dns-error')
+        return result.error('dns-error', domain)
 
     mxs = set()
     for record in answers:
@@ -301,9 +350,10 @@ def checkPolicy(domain):
 
     # See: https://stackoverflow.com/a/106223/559350
     if not domainPattern.match(domain):
-        return report.error('invalid-domain')
+        return report.error('invalid-domain', domain)
 
     checkDNS(report.dns, domain)
+    checkReporting(report.tlsrpt, domain)
     checkPolicyFile(report.policy, domain)
     if 'info' in report.policy.value:
         checkMX(report.mx, domain, report.policy.value['info']['mx'])
