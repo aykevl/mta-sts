@@ -203,6 +203,8 @@
 			Invalid <code>max_age</code> field was specified: <code>{{ report.policy.errorValue }}</code>. It must be a non-negative integer. The suggested amount is at least in the order of weeks.
 			{% elif report.policy.errorName == "short-max-age" %}
 			Very short <code>max_age</code> field specified. It is less than a day with {{ report.policy.errorValue }} seconds. The suggested amount is at least in the order of weeks.
+			{% elif report.policy.errorName == "invalid-mx-entries" %}{# json format #}
+			Invalid <code>mx</code> key specified. It has to be a list.
 			{% elif report.policy.errorName == "no-mx-entries" %}
 			No <code>mx</code> fields specified. Indicates the hostnames (Common Name or SAN) for which the mail server certificate is valid. At least one of the hostnames specified in the policy must be present in the certificate.
 			{% elif report.policy.errorName == "invalid-mx-entry" %}
@@ -217,11 +219,10 @@
 			<ul>
 				{% for warning in report.policy.warnings %}
 				<li>
-					{% if warning.message == "invalid-line" %}
-					An invalid line was found in the policy file:<br/>
-					<code>{{ warning.value }}</code>
-					{% elif warning.message == "big-file" %}
+					{% if warning.message == "big-file" %}
 					Polcy file is too big: {{ warning.value }}kB. It is suggested the file shouldn't be bigger than 64kB.
+					{% elif warning.message == "json-policy" %}
+					Using the older JSON policy. The current spec uses a key-value format.
 					{% elif warning.message == "invalid-line" %}
 					Policy file contains an invalid line: {{ warning.value }}. The specification isn't clear on this, but it might result in the policy file not being read on some hosts.
 					{% elif warning.message == "duplicate-key" %}

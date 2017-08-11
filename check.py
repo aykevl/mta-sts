@@ -4,6 +4,7 @@ import sys
 import dns.resolver # Debian: python3-dnspython
 import urllib.parse
 import http.client
+import json
 import smtplib
 import ssl
 import socket
@@ -18,8 +19,7 @@ import re
 domainPattern = re.compile('^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$')
 
 class Result:
-    def __init__(self, report):
-        self.report = report
+    def __init__(self):
         self.warnings = []
         self.errorName = None
         self.errorValue = None
@@ -29,24 +29,19 @@ class Result:
     def error(self, message, value=None):
         ''' Error for this specific result '''
         self.valid = False
-        self.report.valid = False
         self.errorName = message
         self.errorValue = value
-        return self.report
 
     def warn(self, message, value=None):
         self.warnings.append({'message': message, 'value': value})
-        self.report.hasWarnings = True
 
 class Report:
     def __init__(self, domain):
         self.domain = domain
-        self.hasWarnings = False
-        self.dns = Result(self)
-        self.tlsrpt = Result(self)
-        self.policy = Result(self)
-        self.mx = Result(self)
-        self.valid = True
+        self.dns = Result()
+        self.tlsrpt = Result()
+        self.policy = Result()
+        self.mx = Result()
         self.errorName = None
         self.errorValue = None
 
@@ -56,6 +51,14 @@ class Report:
         self.errorName = message
         self.errorValue = value
         return self
+
+    @property
+    def valid(self):
+        return self.dns.valid and self.tlsrpt.valid and self.policy.valid and self.mx.valid
+
+    @property
+    def hasWarnings(self):
+        return self.dns.warnings or self.tlsrpt.warnings or self.policy.warnings or self.mx.warnings
 
 def retrieveTXTRecord(result, domain, prefix, magic):
     fullDomain = prefix + '.' + domain
@@ -106,9 +109,9 @@ def retrieveTXTRecord(result, domain, prefix, magic):
 
 def checkDNS(result, domain):
     dnsPolicy = retrieveTXTRecord(result, domain, '_mta-sts', 'v=STSv1;')
-    if isinstance(dnsPolicy, Report):
-        # an error was returned
-        return dnsPolicy
+    if dnsPolicy is None:
+        # there was an error
+        return
     result.value = dnsPolicy
 
     fields = list(map(lambda s: s.strip(' \t'), re.split('[ \t]*;[ \t]*', dnsPolicy)))
@@ -137,9 +140,9 @@ def checkDNS(result, domain):
 
 def checkReporting(result, domain):
     dnsPolicy = retrieveTXTRecord(result, domain, '_smtp-tlsrpt', 'v=TLSRPTv1;')
-    if isinstance(dnsPolicy, Report):
+    if dnsPolicy is None:
         # an error was returned
-        return dnsPolicy
+        return
     result.value = dnsPolicy
 
     fields = list(map(lambda s: s.strip(' \t'), re.split('[ \t]*;[ \t]*', dnsPolicy)))
@@ -165,9 +168,9 @@ def checkReporting(result, domain):
     # the spec has stabilized.
 
 
-def checkPolicyFile(result, domain):
+def checkPolicyFile(result, domain, policytype):
     host = 'mta-sts.'+domain
-    path = '/.well-known/mta-sts.policy'
+    path = '/.well-known/mta-sts.' + policytype
     url = 'https://' + host + path
     result.value = {'url': url}
     try:
@@ -210,28 +213,35 @@ def checkPolicyFile(result, domain):
         return result.error('decode-error')
     result.value['data'] = data
 
-    # FIXME: this is using a guessed syntax as the standard doesn't specify one
-    # (only an example).
-    info = {'mx': []}
-    result.value['info'] = info
-    for line in data.split('\n'):
-        line = line.strip()
-        if not line:
-            # empty line
-            continue
-        if ':' not in line:
-            result.warn('invalid-line', line)
-            continue
-        key, value = line.split(':', 2)
-        key = key.strip()
-        value = value.strip()
-        if key == 'mx':
-            info['mx'].append(value)
-        else:
-            if key in info:
-                result.warn('duplicate-key', {'key': key, 'value': value, 'line': line})
+    if policytype == 'policy':
+        # FIXME: this is using a guessed syntax as the standard doesn't specify one
+        # (only an example).
+        info = {'mx': []}
+        for line in data.split('\n'):
+            line = line.strip()
+            if not line:
+                # empty line
                 continue
-            info[key] = value
+            if ':' not in line:
+                result.warn('invalid-line', line)
+                continue
+            key, value = line.split(':', 2)
+            key = key.strip()
+            value = value.strip()
+            if key == 'mx':
+                info['mx'].append(value)
+            else:
+                if key in info:
+                    result.warn('duplicate-key', {'key': key, 'value': value, 'line': line})
+                    continue
+                info[key] = value
+    else: # json file
+        try:
+            info = json.loads(data)
+        except json.JSONDecodeError:
+            return result.error('json-decode')
+
+    result.value['info'] = info
 
     if 'version' not in info:
         return result.error('no-version')
@@ -253,8 +263,10 @@ def checkPolicyFile(result, domain):
         return result.error('short-max-age', max_age)
     if max_age < 2592000: # 30 days
         result.warn('short-max-age', max_age/86400)
-    if len(info['mx']) < 1:
+    if 'mx' not in info or len(info['mx']) < 1:
         return result.error('no-mx-entries')
+    if type(info['mx']) != list: # json
+        return result.error('invalid-mx-entries')
     for mx in info['mx']:
         # TODO: check domain using pattern that accepts .example.com
         pass
@@ -380,14 +392,14 @@ def checkPolicy(domain):
 
     checkDNS(report.dns, domain)
     checkReporting(report.tlsrpt, domain)
-    checkPolicyFile(report.policy, domain)
-    if 'info' in report.policy.value:
-        checkMX(report.mx, domain, report.policy.value['info']['mx'])
-    else:
-        checkMX(report.mx, domain)
-        if report.mx.valid:
-            # don't show an error message when the names haven't been checked
-            report.mx.error('no-policy')
+    checkPolicyFile(report.policy, domain, 'policy')
+    if report.policy.errorName in ['policy-not-found', 'http-status']:
+        jsonpolicy = Result()
+        jsonpolicy.warn('json-policy')
+        checkPolicyFile(jsonpolicy, domain, 'json')
+        if jsonpolicy.errorName not in ['policy-not-found', 'http-status']:
+            report.policy = jsonpolicy
+    checkMX(report.mx, domain, report.policy.value.get('info', {}).get('mx', None))
 
     return report
 
