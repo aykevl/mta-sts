@@ -171,6 +171,10 @@
 			Policy file not found.
 			{% elif report.policy.errorName == "connect" %}
 			Failed to connect to the HTTPS server.
+			{% elif report.policy.errorName == "ssl-error" %}
+			SSL error while connecting to the HTTPS server: <code>{{ report.policy.errorValue }}</code>.
+			{% elif report.policy.errorName == "certificate-error" %}
+			SSL certificate error while connecting to the HTTPS server: {{ report.policy.errorValue }}.
 			{% elif report.policy.errorName == "request" %}
 			Failed to request the policy file from the HTTPS server.
 			{% elif report.policy.errorName == "http-status" %}
@@ -262,7 +266,19 @@
 				</dt>
 				<dd>
 					{% if mx.error %}
-					<strong>Error</strong>: <code>{{ mx.error }}</code><br/>
+					<strong>Error</strong>:
+					{% if mx.error == "!invalid-mx" %}
+					Invalid MX.
+					{% elif mx.error == "!timeout" %}
+					Timeout while connecting to the mail server.
+					{% elif mx.error == "!skip" %}
+					Skipping this MX: already processed too much.
+					{% elif mx.error == "!unknown" %}
+					Unknown.
+					{% else %}
+					<code>{{ mx.error }}</code>
+					{% endif %}
+					<br/>
 					{% endif %}
 					{% for name in mx.certnames %}
 					<code class="text-nowrap">{{ name }}</code>

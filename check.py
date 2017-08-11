@@ -171,8 +171,10 @@ def checkPolicyFile(result, domain):
     url = 'https://' + host + path
     result.value = {'url': url}
     try:
-        conn = http.client.HTTPSConnection(host, timeout=60)
-    except http.client.HTTPException:
+        # timeout of 60s suggested by the standard
+        context = context = ssl.create_default_context()
+        conn = http.client.HTTPSConnection(host, timeout=10, context=context)
+    except (http.client.HTTPException, TimeoutError):
         return result.error('connect')
 
     try:
@@ -190,6 +192,10 @@ def checkPolicyFile(result, domain):
             return result.error('host-not-found', host)
         else:
             return result.error('dns-error', host)
+    except ssl.SSLError as e:
+        return result.error('ssl-error', e.reason)
+    except ssl.CertificateError as e:
+        return result.error('certificate-error', e)
     except OSError:
         return result.error('http-resolve-unknown', url)
     finally:
@@ -289,12 +295,19 @@ def checkMX(result, domain, policyNames=None):
         names = set()
         cert = None
         try:
-            context = ssl.create_default_context()
-            # we do our own hostname checking
-            context.check_hostname = False
-            conn = smtplib.SMTP(mx, port=25)
-            conn.starttls(context=context)
-            cert = conn.sock.getpeercert()
+            cert = {}
+            if not domainPattern.match(mx):
+                data['error'] = '!invalid-mx'
+            elif len(result.value) > 5:
+                data['error'] = '!skip'
+            else:
+                # TODO test MX label validity
+                context = ssl.create_default_context()
+                # we do our own hostname checking
+                context.check_hostname = False
+                conn = smtplib.SMTP(mx, port=25, timeout=10)
+                conn.starttls(context=context)
+                cert = conn.sock.getpeercert()
 
             # TODO check for expired certificate?
 
@@ -307,10 +320,18 @@ def checkMX(result, domain, policyNames=None):
                         names.add(san[1])
         except ssl.SSLError as e:
             data['error'] = e.reason
+        except (TimeoutError, socket.timeout):
+            data['error'] = '!timeout'
+        except smtplib.SMTPException as e:
+            data['error'] = e
         finally:
             # try to close the connection
             if conn is not None:
                 conn.close()
+
+        if cert is not None and not names and not data.get('error'):
+            # does this actually happen?
+            data['error'] = '!unknown'
 
         names = list(names)
         def domainsortkey(n):
