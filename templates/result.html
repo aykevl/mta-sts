@@ -255,6 +255,7 @@
 				{% for mx in report.mx.value %}
 				<dt>
 					{{ mx.mx }}
+					<span class="font-weight-normal">({{ mx.preference }})</span>
 					{% if mx.valid %}<span class="icon-check">✔</span>
 					{% else %}<span class="icon-no">✖</span>
 					{% endif %}

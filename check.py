@@ -142,7 +142,6 @@ def checkReporting(result, domain):
         return dnsPolicy
     result.value = dnsPolicy
 
-    print(dnsPolicy)
     fields = list(map(lambda s: s.strip(' \t'), re.split('[ \t]*;[ \t]*', dnsPolicy)))
 
     if fields[0] != 'v=TLSRPTv1':
@@ -267,17 +266,23 @@ def checkMX(result, domain, policyNames=None):
     except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.Timeout):
         return result.error('dns-error', domain)
 
-    mxs = set()
+    mxs = {}
     for record in answers:
-        mxs.add(record.exchange.to_text(omit_final_dot=True))
+        mxs[record.exchange.to_text(omit_final_dot=True)] = record.preference
 
-    mxs = list(mxs)
-    mxs.sort()
+    def mxsortkey(mx):
+        name, preference = mx
+        parts = name.split('.')
+        parts.reverse()
+        return preference, parts
+
+    mxs = list(mxs.items())
+    mxs.sort(key=mxsortkey)
 
     result.value = []
 
-    for mx in mxs:
-        data = {'mx': mx}
+    for mx, preference in mxs:
+        data = {'mx': mx, 'preference': preference}
         result.value.append(data)
 
         conn = None
