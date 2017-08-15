@@ -251,7 +251,7 @@ def checkPolicyFile(result, domain, policytype):
     else: # json file
         try:
             info = json.loads(data)
-        except json.JSONDecodeError:
+        except ValueError:
             return result.error('json-decode')
 
     result.value['info'] = info

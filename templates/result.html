@@ -198,6 +198,8 @@
 			Failed to decode the policy file from ASCII. The standard doesn't say anything about the encoding, but this is probably an error.
 			{% elif report.policy.errorName == "invalid-linefeed" %}
 			Policy file is written using an LF (Unix-style) newline, not CRLF (internet/Windows-style) newlines. The current specification does not allow using LF newlines, it requires CRLF newlines.
+			{% elif report.policy.errorName == "json-decode" %}{# json format #}
+			Could not decode JSON file.
 			{% elif report.policy.errorName == "invalid-content-type" %}
 			Invalid Content-Type header <code>{{ report.policy.errorValue }}</code>. It must be "text/plain".
 			{% elif report.policy.errorName == "no-version" %}
