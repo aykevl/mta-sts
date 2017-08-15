@@ -165,7 +165,12 @@
 			</p>
 			<pre class="mb-0 ml-4">{{ report.policy.value.data }}</pre>
 			{% endif %}
-			{% if not report.policy.valid %}
+			{% if report.policy.valid %}
+			<p><strong>Note</strong>: while the current draft spec specifies a key-value format, current implementations (<a href="https://mta-sts.yahoo.com/.well-known/mta-sts.json">Yahoo.com</a>, <a href="https://mta-sts.gmail.com/.well-known/mta-sts.json">Gmail.com</a>) use a JSON format.</p>
+			{% if report.policy.value.type == "txt" %}
+			<p><strong>Note</strong>: the order of keys in the policy file must be version, mode, mx[...], max_age. Checking this is currently disabled as that's a bit more difficult to do while still supporting the (old) JSON file format. It will be enabled as soon as the JSON format is removed.</p>
+			{% endif %}{# report.policy.type == "txt" #}
+			{% else %}{# report.policy.valid #}
 			<strong>Error</strong>:
 			{% if report.policy.errorName == "not-found" %}
 			Policy file not found.
@@ -191,6 +196,10 @@
 			Polcy file is very big: {{ warning.value }}kB. It is suggested in the spec that the file shouldn't be bigger than 64kB.
 			{% elif report.policy.errorName == "decode-error" %}
 			Failed to decode the policy file from ASCII. The standard doesn't say anything about the encoding, but this is probably an error.
+			{% elif report.policy.errorName == "invalid-linefeed" %}
+			Policy file is written using an LF (Unix-style) newline, not CRLF (internet/Windows-style) newlines. The current specification does not allow using LF newlines, it requires CRLF newlines.
+			{% elif report.policy.errorName == "invalid-content-type" %}
+			Invalid Content-Type header <code>{{ report.policy.errorValue }}</code>. It must be "text/plain".
 			{% elif report.policy.errorName == "no-version" %}
 			No <code>version</code> field was specified. It must be set to <code>STSv1</code>.
 			{% elif report.policy.errorName == "invalid-version" %}
@@ -224,9 +233,11 @@
 					{% if warning.message == "big-file" %}
 					Polcy file is quite big: {{ warning.value }}kB. It is suggested the file shouldn't be bigger than 64kB, but this is already a large file.
 					{% elif warning.message == "json-policy" %}
-					Using the older JSON policy. The current spec uses a key-value format.
+					Using the older JSON policy format. The current spec uses a key-value format. Support for the JSON format will probably be removed from this tool in the future when common implementations (e.g. gmail.com) have progressed.
+					{% elif warning.message == "content-type-options" %}
+					Using options for the Content-Type header: <code>{{ warning.value }}</code>. The current spec specifies that the header MUST be <code>text/plain</code>.
 					{% elif warning.message == "invalid-line" %}
-					Policy file contains an invalid line: {{ warning.value }}. The specification isn't clear on this, but it might result in the policy file not being read on some hosts.
+					Policy file contains an invalid line: <code>{{ warning.value }}</code>. The current specification does not allow empty lines or files ending with a newline (which is also an empty line).
 					{% elif warning.message == "duplicate-key" %}
 					Line with duplicate key found. This line will be ignored by well-behaved parsers.<br/>
 					<code>{{ warning.value.line }}</code>

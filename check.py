@@ -4,6 +4,7 @@ import sys
 import dns.resolver # Debian: python3-dnspython
 import urllib.parse
 import http.client
+import cgi
 import json
 import smtplib
 import ssl
@@ -173,7 +174,10 @@ def checkPolicyFile(result, domain, policytype):
     host = 'mta-sts.'+domain
     path = '/.well-known/mta-sts.' + policytype
     url = 'https://' + host + path
-    result.value = {'url': url}
+    result.value = {
+        'type': policytype,
+        'url': url,
+    }
     try:
         # timeout of 60s suggested by the standard
         context = context = ssl.create_default_context()
@@ -216,21 +220,27 @@ def checkPolicyFile(result, domain, policytype):
         return result.error('decode-error')
     result.value['data'] = data
 
-    if policytype == 'policy':
+    if policytype in ['policy', 'txt']:
+        contentType = res.getheader('Content-Type')
+        mimetype, options = cgi.parse_header(contentType)
+        if mimetype != 'text/plain':
+            return result.error('invalid-content-type', contentType)
+        if contentType != 'text/plain':
+            # TODO: spec just says the Content-Type header MUST be
+            # "text/plain", and doesn't say anything about extra options (e.g.
+            # charset).
+            result.warn('content-type-options', contentType)
         # FIXME: this is using a guessed syntax as the standard doesn't specify one
         # (only an example).
         info = {'mx': []}
-        for line in data.split('\n'):
-            line = line.strip()
-            if not line:
-                # empty line
-                continue
+        for line in data.split('\r\n'):
             if ':' not in line:
                 result.warn('invalid-line', line)
                 continue
-            key, value = line.split(':', 2)
-            key = key.strip()
-            value = value.strip()
+            key, value = line.split(':', 1)
+            value = value.lstrip(' \t')
+            if '\n' in value:
+                return result.error('invalid-linefeed')
             if key == 'mx':
                 info['mx'].append(value)
             else:
@@ -259,6 +269,8 @@ def checkPolicyFile(result, domain, policytype):
     try:
         max_age = int(info['max_age'])
         if max_age < 0:
+            raise ValueError('')
+        if max_age > 10**10-1: # 9999999999, or 10 chars
             raise ValueError('')
     except ValueError:
         return result.error('invalid-max-age', info['max_age'])
@@ -395,7 +407,7 @@ def checkPolicy(domain):
 
     checkDNS(report.dns, domain)
     checkReporting(report.tlsrpt, domain)
-    checkPolicyFile(report.policy, domain, 'policy')
+    checkPolicyFile(report.policy, domain, 'txt')
     if report.policy.errorName in ['policy-not-found', 'http-status']:
         jsonpolicy = Result()
         jsonpolicy.warn('json-policy')
