@@ -187,6 +187,8 @@
 			Error while resolving <code>{{ report.policy.errorValue }}</code>.
 			{% elif report.policy.errorName == "host-not-found" %}
 			Other error while requesting <code>{{ report.policy.errorValue }}</code>.
+			{% elif report.policy.errorName == "big-file" %}
+			Polcy file is very big: {{ warning.value }}kB. It is suggested in the spec that the file shouldn't be bigger than 64kB.
 			{% elif report.policy.errorName == "decode-error" %}
 			Failed to decode the policy file from ASCII. The standard doesn't say anything about the encoding, but this is probably an error.
 			{% elif report.policy.errorName == "no-version" %}
@@ -220,7 +222,7 @@
 				{% for warning in report.policy.warnings %}
 				<li>
 					{% if warning.message == "big-file" %}
-					Polcy file is too big: {{ warning.value }}kB. It is suggested the file shouldn't be bigger than 64kB.
+					Polcy file is quite big: {{ warning.value }}kB. It is suggested the file shouldn't be bigger than 64kB, but this is already a large file.
 					{% elif warning.message == "json-policy" %}
 					Using the older JSON policy. The current spec uses a key-value format.
 					{% elif warning.message == "invalid-line" %}

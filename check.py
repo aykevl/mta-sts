@@ -188,7 +188,7 @@ def checkPolicyFile(result, domain, policytype):
             return result.error('policy-not-found')
         if res.status != 200:
             return result.error('http-status', res.status)
-        data = res.read()
+        data = res.read(65*1024)
     except http.client.HTTPException:
         return result.error('request')
     except socket.gaierror as e:
@@ -205,7 +205,9 @@ def checkPolicyFile(result, domain, policytype):
     finally:
         conn.close()
 
-    if len(data) >= 65536:
+    if len(data) >= 64*1024:
+        return result.error3('big-file', int(round(len(data)/1024)))
+    if len(data) > 4*1024:
         result.warn('big-file', int(round(len(data)/1024)))
 
     try:
