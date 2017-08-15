@@ -158,9 +158,10 @@ def checkReporting(result, domain):
     if ',' in rua or '!' in rua:
         return result.error('invalid-rua', fields[1])
     try:
-        url = urllib.parse.urlparse(rua)
-        if url.scheme not in ['mailto', 'http', 'https']:
-            return result.error('invalid-rua', fields[1])
+        for part in rua.split(','):
+            url = urllib.parse.urlparse(part)
+            if url.scheme not in ['mailto', 'https']:
+                return result.error('invalid-rua', fields[1])
     except ValueError:
         return result.error('invalid-rua', fields[1])
 
