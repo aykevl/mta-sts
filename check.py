@@ -17,7 +17,8 @@ import re
 # See e.g. this page how to deploy:
 # http://flask.pocoo.org/docs/0.12/deploying/uwsgi/
 
-domainPattern = re.compile('^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$')
+domainPattern   = re.compile(   '^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$')
+mxDomainPattern = re.compile('^\.?(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$')
 
 class Result:
     def __init__(self):
@@ -283,10 +284,12 @@ def checkPolicyFile(result, domain, policytype):
     if type(info['mx']) != list: # json
         return result.error('invalid-mx-entries')
     for mx in info['mx']:
-        # TODO: check domain using pattern that accepts .example.com
-        pass
-        #if not domainPattern.match(mx):
-        #    return result.error('invalid-mx-entry', mx)
+        # ABNF:
+        #     1*(ALPHA / DIGIT / "_" / "-" / ".")
+        # But they must be valid domain names (optionally starting with a dot)
+        # so check that here.
+        if not mxDomainPattern.match(mx):
+            return result.error('invalid-mx-entry', mx)
 
     for key, value in info.items():
         if key not in ['version', 'mode', 'max_age', 'mx']:
