@@ -133,12 +133,8 @@ def checkDNS(result, domain):
     # no version numbering with higher versions being later defined.
     if not re.match('^[a-zA-Z0-9]{1,32}$', idvalue):
         return result.error('invalid-id', idvalue)
-    for field in fields[2:]:
-        if not field:
-            continue
-        if not re.match('^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,31}=[\x21-\x3a\x3c\x3e-\x7e]{1,}$', field):
-            return result.error('invalid-ext-field', field)
-        result.warn('unknown-ext-field', field)
+
+    return checkExtensionFields(fields[2:], result)
 
 def checkReporting(result, domain):
     dnsPolicy = retrieveTXTRecord(result, domain, '_smtp-tlsrpt', 'v=TLSRPTv1;')
@@ -147,7 +143,7 @@ def checkReporting(result, domain):
         return
     result.value = dnsPolicy
 
-    fields = list(map(lambda s: s.strip(' \t'), re.split('[ \t]*;[ \t]*', dnsPolicy)))
+    fields = re.split('[ \t]*;[ \t]*', dnsPolicy) # split at field-delim
 
     if fields[0] != 'v=TLSRPTv1':
         # already covered in no-valid-txt-record but checking it anyway
@@ -157,18 +153,25 @@ def checkReporting(result, domain):
     if not fields[1].startswith('rua='):
         return result.error('invalid-rua', fields[1])
     rua = fields[1][4:]
-    if ',' in rua or '!' in rua:
+    if '!' in rua:
         return result.error('invalid-rua', fields[1])
     try:
-        for part in rua.split(','):
+        for part in re.split('[ \t]*,[ \t]*', rua):
             url = urllib.parse.urlparse(part)
             if url.scheme not in ['mailto', 'https']:
                 return result.error('invalid-rua', fields[1])
     except ValueError:
         return result.error('invalid-rua', fields[1])
 
-    # TODO: check extension fields for syntactical validity, but do that after
-    # the spec has stabilized.
+    return checkExtensionFields(fields[2:], result)
+
+def checkExtensionFields(fields, result):
+    for field in fields[2:]:
+        if not field:
+            continue
+        if not re.match('^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,31}=[\x21-\x3a\x3c\x3e-\x7e]{1,}$', field):
+            return result.error('invalid-ext-field', field)
+        result.warn('unknown-ext-field', field)
 
 
 def checkPolicyFile(result, domain, policytype):
@@ -227,19 +230,23 @@ def checkPolicyFile(result, domain, policytype):
         if mimetype != 'text/plain':
             return result.error('invalid-content-type', contentType)
         if contentType != 'text/plain':
-            # TODO: spec just says the Content-Type header MUST be
-            # "text/plain", and doesn't say anything about extra options (e.g.
-            # charset).
-            result.warn('content-type-options', contentType)
-        # FIXME: this is using a guessed syntax as the standard doesn't specify one
-        # (only an example).
+            print(list(options.keys()))
+            if list(options.keys()) not in ([], ['charset']):
+                # TODO spec says "additional charset parameters are allowed",
+                # nothing about other keys.
+                result.warn('content-type-options', contentType)
         info = {'mx': []}
-        for line in data.split('\r\n'):
+        lines = data.split('\r\n')
+        if lines[-1] == '':
+            # Normally you would just 'continue' on empty lines, but in this
+            # case we want to validate there are no empty lines before EOF.
+            lines = lines[:-1]
+        for line in lines:
             if ':' not in line:
                 result.warn('invalid-line', line)
                 continue
             key, value = line.split(':', 1)
-            value = value.lstrip(' \t')
+            value = value.strip(' \t')
             if '\n' in value:
                 return result.error('invalid-linefeed')
             if key == 'mx':
@@ -279,6 +286,8 @@ def checkPolicyFile(result, domain, policytype):
         return result.error('short-max-age', max_age)
     if max_age < 2592000: # 30 days
         result.warn('short-max-age', max_age/86400)
+    if max_age > 31557600:
+        result.warn('long-max-age', max_age/86400)
     if 'mx' not in info or len(info['mx']) < 1:
         return result.error('no-mx-entries')
     if type(info['mx']) != list: # json
