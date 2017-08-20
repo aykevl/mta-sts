@@ -179,7 +179,7 @@
 			<p>
 			Policy: <a href="{{ report.policy.value.url }}">{{ report.policy.value.url }}</a>
 			</p>
-			<pre class="mb-0 ml-4">{{ report.policy.value.data }}</pre>
+			<pre class="ml-4">{{ report.policy.value.data }}</pre>
 			{% endif %}
 			{% if report.policy.valid %}
 			<p><strong>Note</strong>: while the current draft spec specifies a key-value format, current implementations (<a href="https://mta-sts.yahoo.com/.well-known/mta-sts.json">Yahoo.com</a>, <a href="https://mta-sts.gmail.com/.well-known/mta-sts.json">Gmail.com</a>) use a JSON format.</p>
