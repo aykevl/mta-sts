@@ -449,6 +449,8 @@ limiter = Limiter(
 @limiter.limit('200 per day', key_func=lambda: flask.request.args.get('domain'))
 def check(path=None):
     domain = flask.request.args.get('domain')
+    if not domain:
+        return 'No domain given.'
     report = checkPolicy(domain)
     return flask.render_template('result.html', report=report)
 
