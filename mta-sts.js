@@ -2,34 +2,96 @@
 
 var API = 'api'
 
+var input = document.querySelector('.domain input');
+var button = document.querySelector('.domain button');
+var summary = document.querySelector('#summary');
+var report = document.querySelector('#report');
+
 function onsubmit(e) {
   e.preventDefault();
-  var input = document.querySelector('.domain input');
-  var button = document.querySelector('.domain button');
-  var result = document.querySelector('#result');
 
   button.disabled = true;
-  result.innerHTML = document.querySelector('#templates > .loading').innerHTML;
+  summary.innerHTML = document.querySelector('#templates > .loading').innerHTML;
+  report.innerHTML = '';
 
   var domain = input.value;
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', API+'?domain='+domain);
-  xhr.send();
-  xhr.onload = function() {
-    button.disabled = false;
-    if (xhr.status == 429) {
-      result.innerHTML = document.querySelector('#templates > .rate-limit').innerHTML;
-    } else if (xhr.status != 200) {
-      result.innerHTML = document.querySelector('#templates > .other-error').innerHTML;
-    } else {
-      result.innerHTML = xhr.responseText;
+  var url = API+'?domain='+domain;
+
+  if ('EventSource' in window) {
+    var events = new EventSource(url);
+    events.onmessage = function(e) {
+      var message = JSON.parse(e.data);
+      onmessage(message);
+      if (message.close) {
+        events.close();
+      }
+    };
+    events.onerror = function(e) {
+      console.error('onerror', e);
+      button.disabled = false;
+      summary.innerHTML = document.querySelector('#templates > .other-error').innerHTML;
+      // TODO: summary.innerHTML = document.querySelector('#templates > .rate-limit').innerHTML;
+      events.close();
+    };
+  } else {
+    // Fallback for IE/Edge
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url);
+    var done = 0;
+    var message = '';
+
+    function incomingData() {
+      var lines = xhr.responseText.split('\n');
+      for (var i=done; i<lines.length; i++) {
+        var line = lines[i].trim();
+        if (line.substr(0, 6) == 'data: ') {
+          message += line.substr(6);
+        } else if (!line) {
+          done = i;
+          if (message) {
+            onmessage(JSON.parse(message));
+            message = '';
+          }
+        }
+        if (message) {
+          onmessage(JSON.parse(message));
+          message = '';
+        }
+      }
     }
-  };
-  xhr.onerror = function(e) {
+
+    xhr.onprogress = function(e) {
+      incomingData();
+    };
+    xhr.onload = function(e) {
+      button.disabled = false;
+      incomingData();
+    }
+    xhr.onerror = function(e) {
+      button.disabled = false;
+      if (e.status == 429) {
+        summary.innerHTML = document.querySelector('#templates > .rate-limit').innerHTML;
+      } else {
+        summary.innerHTML = document.querySelector('#templates > .other-error').innerHTML;
+      }
+    };
+    xhr.send();
+  }
+}
+
+function onmessage(message) {
+  if (message.summary) {
+    summary.innerHTML = message.summary;
+  }
+  if (message.result) {
+    var div = document.createElement('div');
+    div.innerHTML = message.html;
+    div.appendChild(document.createElement('hr'));
+    report.appendChild(div);
+  }
+  if (message.close) {
     button.disabled = false;
-    console.error('could not finish XHR', e);
-    result.innerHTML = document.querySelector('#templates > .other-error').innerHTML;
-  };
+  }
 }
 
 function onload() {

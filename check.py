@@ -418,7 +418,9 @@ def checkPolicy(domain):
         return report.error('invalid-domain', domain)
 
     checkDNS(report.dns, domain)
+    yield (report, 'mta-sts')
     checkReporting(report.tlsrpt, domain)
+    yield (report, 'tlsrpt')
     checkPolicyFile(report.policy, domain, 'txt')
     if report.policy.errorName in ['policy-not-found', 'http-status']:
         jsonpolicy = Result()
@@ -426,9 +428,9 @@ def checkPolicy(domain):
         checkPolicyFile(jsonpolicy, domain, 'json')
         if jsonpolicy.errorName not in ['policy-not-found', 'http-status']:
             report.policy = jsonpolicy
+    yield (report, 'policy')
     checkMX(report.mx, domain, report.policy.value.get('info', {}).get('mx', None))
-
-    return report
+    yield (report, 'mx')
 
 app = flask.Flask(__name__)
 app.config['PROPAGATE_EXCEPTIONS'] = True
@@ -451,13 +453,26 @@ def check(path=None):
     domain = flask.request.args.get('domain')
     if not domain:
         return 'No domain given.'
-    report = checkPolicy(domain)
-    return flask.render_template('result.html', report=report)
+
+    def generate():
+        for report, result in checkPolicy(domain):
+            with app.app_context():
+                html = flask.render_template('result-%s.html' % result, report=report)
+            yield makeEventSource({'result': result, 'html': html})
+        with app.app_context():
+            summary = flask.render_template('summary.html', report=report)
+        yield makeEventSource({'summary': summary, 'close': True})
+
+    response = flask.Response(generate(), mimetype='text/event-stream')
+    return response
+
+def makeEventSource(data):
+    return 'data: ' + json.dumps(data).replace('\n', '\ndata: ') + '\n\n'
 
 
 def main():
     if len(sys.argv) < 2:
-        app.run()
+        app.run(debug=True)
     else:
         result = checkPolicy(sys.argv[1])
         if result.dnsPolicy:

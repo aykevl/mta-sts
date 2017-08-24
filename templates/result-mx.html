@@ -1,0 +1,53 @@
+<h2>
+	{% if report.mx.valid %}
+	<span class="icon-check icon-big">✔</span>
+	{% else %}
+	<span class="icon-no icon-big">✖</span>
+	{% endif %}
+	Certificate check
+</h2>
+
+{% if report.mx.value %}
+{% if not report.policy.value.info or not report.policy.value.info.mx %}
+<p><strong>Note</strong>: No valid policy found so can't test MX servers.</p>
+{% endif %}
+<dl>
+	{% for mx in report.mx.value %}
+	<dt>
+		{{ mx.mx }}
+		<span class="font-weight-normal">({{ mx.preference }})</span>
+		{% if mx.valid %}<span class="icon-check">✔</span>
+		{% else %}<span class="icon-no">✖</span>
+		{% endif %}
+	</dt>
+	<dd>
+		{% if mx.error %}
+		<strong>Error</strong>:
+		{% if mx.error == "!invalid-mx" %}
+		Invalid MX.
+		{% elif mx.error == "!timeout" %}
+		Timeout while connecting to the mail server.
+		{% elif mx.error == "!skip" %}
+		Skipping this MX: already processed too much.
+		{% elif mx.error == "!unknown" %}
+		Unknown.
+		{% else %}
+		<code>{{ mx.error }}</code>
+		{% endif %}
+		<br/>
+		{% endif %}
+		{% for name in mx.certnames %}
+		<code class="text-nowrap">{{ name }}</code>
+		{% endfor %}
+	</dd>
+	{% endfor %}{# report.mx.value #}
+</dl>
+{% endif %}{# report.mx.value #}
+{% if report.mx.errorName %}
+<p>
+	<strong>Error</strong>:
+	{% if report.mx.errorName == "dns-error" %}
+	Could not resolve MX records for domain <code>{{ report.mx.errorValue }}</code>.
+	{% endif %}{# report.mx.errorName #}
+</p>
+{% endif %}{# report.mx.errorName? #}

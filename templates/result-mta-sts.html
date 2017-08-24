@@ -1,0 +1,71 @@
+<h3>
+	{% if report.dns.valid %}
+	<span class="icon-check icon-big">✔</span>
+	{% else %}
+	<span class="icon-no icon-big">✖</span>
+	{% endif %}
+	MTA-STS TXT record
+</h3>
+
+<p>
+	Policy:
+	{% if report.dns.value %}
+		<code>{{ report.dns.value }}</code>
+	{% else %}
+		none
+	{% endif %}
+</p>
+<p>
+{% if not report.dns.valid %}
+<strong>Error</strong>:
+{% if report.dns.errorName == "invalid-domain" %}
+Cannot resolve DNS: invalid syntax for domain <code>{{ report.dns.errorValue }}</code>.
+{% elif report.dns.errorName == "no-domain" %}
+Cannot resolve DNS: domain <code>{{ report.dns.errorValue }}</code> does not exist.
+{% elif report.dns.errorName == "no-answer" %}
+Cannot resolve DNS: no answer for <code>{{ report.dns.errorValue }}</code>.
+{% elif report.dns.errorName == "timeout" %}
+Cannot resolve DNS: timeout for <code>{{ report.dns.errorValue }}</code>.
+{% elif report.dns.errorName == "multiple-records" %}
+Multiple TXT records have been returned. This is disallowed by the standard.
+<ul>
+	{% for record in report.dns.errorValue %}
+	<li><code>{{ record }}</code></li>
+	{% endfor %}
+</ul>
+{% elif report.dns.errorName == "no-valid-txt-record" %}
+Some TXT records were found, but none of them started with the magic string <code>v=STSv1;</code>:
+<ul>
+	{% for record in report.dns.errorValue %}
+	<li><code>{{ record }}</code></li>
+	{% endfor %}
+</ul>
+{% elif report.dns.errorName == "no-txt-record" %}
+No TXT records have been found.
+{% elif report.dns.errorName == "invalid-version-prefix" %}
+Invalid version prefix. Must be <code>v=STSv1</code>, not <code>{{ report.dns.errorValue }}</code>.
+{% elif report.dns.errorName == "invalid-id" %}
+The <code>id</code> value (<code>{{ report.dns.errorValue }}</code>) may only contain alphanumeric characters and must be 1-32 characters long.
+{% elif report.dns.errorName == "invalid-ext-field" %}
+There is an extra field <code>{{ report.dns.errorValue }}</code> which is invalid.
+{% else %}
+Unknown error: {{ report.dns.errorName }}
+{% endif %}{# report.dns.errorName #}
+{% endif %}{# report.dns.valid #}
+
+{% if report.dns.warnings %}
+<p><strong>Warnings</strong>:</p>
+<ul>
+	{% for warning in report.dns.warnings %}
+	<li>
+		{% if warning.message == "multiple-strings-undefined" %}
+		This TXT record contains multiple strings. This probably means it is very long - over 255 bytes. The current MTA-STS standard doesn't specify what should happen with multiple strings, but like similar standards (<a href="https://tools.ietf.org/html/rfc4408#section-3.1.3">SPF</a>, <a href="https://tools.ietf.org/html/rfc6376#section-3.6.2.2">DKIM</a>) they will probably be concatenated together. See <a href="https://github.com/mrisher/smtp-sts/issues/168">issue #168</a> for details.
+		{% elif warning.message == "unknown-ext-field" %}
+		There is an unrecognized field <code>{{ warning.value }}</code> in the TXT record. While this is not a problem and well-behaved parsers should ignore the field, it may be best to remove it just to be sure.
+		{% else %}
+		Unknown warning: {{ warning.message }}
+		{% endif %}{# warning.message #}
+	</li>
+	{% endfor %}{# report.dns.warnings #}
+</ul>
+{% endif %}{# report.dns.warnings #}
