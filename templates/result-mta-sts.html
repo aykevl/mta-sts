@@ -1,10 +1,5 @@
-<h3>
-	{% if report.dns.valid %}
-	<span class="icon-check icon-big">✔</span>
-	{% else %}
-	<span class="icon-no icon-big">✖</span>
-	{% endif %}
-	MTA-STS TXT record
+<h3 {% if report.dns.valid %}class="ok"{%else%}class="fail"{%endif%}>
+	<div>MTA-STS TXT record</div>
 </h3>
 
 <p>

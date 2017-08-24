@@ -19,3 +19,27 @@ dd {
 .icon-big {
 	font-size: 48px;
 }
+
+#report h3:before,
+#report h3:before {
+	font-size: 48px;
+	float: left;
+	line-height: 1;
+}
+#report h3.ok:before {
+	content: '✔';
+	color: green;
+}
+#report h3.fail:before {
+	content: '✖';
+	color: red;
+}
+#report h3:after {
+	content: "";
+	display: block;
+	clear: both;
+}
+#report h3 div,
+#report h3 div {
+	margin-left: 48px;
+}

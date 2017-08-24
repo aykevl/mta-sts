@@ -1,10 +1,5 @@
-<h3>
-	{% if report.policy.valid %}
-	<span class="icon-check icon-big">✔</span>
-	{% else %}
-	<span class="icon-no icon-big">✖</span>
-	{% endif %}
-	Policy file
+<h3 {% if report.policy.valid %}class="ok"{%else%}class="fail"{%endif%}>
+	<div>Policy file</div>
 </h3>
 
 {% if report.policy.value %}

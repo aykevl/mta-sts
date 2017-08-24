@@ -1,10 +1,5 @@
-<h3>
-	{% if report.mx.valid %}
-	<span class="icon-check icon-big">✔</span>
-	{% else %}
-	<span class="icon-no icon-big">✖</span>
-	{% endif %}
-	Certificate check
+<h3 {% if report.mx.valid %}class="ok"{%else%}class="fail"{%endif%}>
+	<div>Certificate check</div>
 </h3>
 
 {% if report.mx.value %}
