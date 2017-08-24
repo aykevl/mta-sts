@@ -34,6 +34,7 @@ function onsubmit(e) {
       events.close();
     };
   } else {
+    console.log('using fallback for EventSource');
     // Fallback for IE/Edge
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url);

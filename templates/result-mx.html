@@ -1,11 +1,11 @@
-<h2>
+<h3>
 	{% if report.mx.valid %}
 	<span class="icon-check icon-big">✔</span>
 	{% else %}
 	<span class="icon-no icon-big">✖</span>
 	{% endif %}
 	Certificate check
-</h2>
+</h3>
 
 {% if report.mx.value %}
 {% if not report.policy.value.info or not report.policy.value.info.mx %}

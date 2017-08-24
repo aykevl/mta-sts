@@ -464,6 +464,10 @@ def check(path=None):
         yield makeEventSource({'summary': summary, 'close': True})
 
     response = flask.Response(generate(), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    # Disable buffering - required for EventSource.
+    # See: http://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_buffering
+    response.headers['X-Accel-Buffering'] = 'no'
     return response
 
 def makeEventSource(data):
