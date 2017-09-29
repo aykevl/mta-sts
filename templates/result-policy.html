@@ -10,11 +10,8 @@ Policy: <a href="{{ report.policy.value.url }}">{{ report.policy.value.url }}</a
 {% endif %}
 {% if report.policy.valid %}
 <p><strong>Note</strong>: while the current draft spec specifies a key-value format, current implementations (<a href="https://mta-sts.yahoo.com/.well-known/mta-sts.json">Yahoo.com</a>, <a href="https://mta-sts.gmail.com/.well-known/mta-sts.json">Gmail.com</a>) use a JSON format.</p>
-{% if report.policy.value.type == "txt" %}
-<p><strong>Note</strong>: currently, the order of keys must be version, mode, mx[...], max_age. This is likely to change (see <a href="https://github.com/mrisher/smtp-sts/issues/174">issue #174</a>) and it's a bit difficult to do this check while still supporting the (old) JSON file format, so it's currently disabled.</p>
-{% endif %}{# report.policy.type == "txt" #}
 {% else %}{# report.policy.valid #}
-<strong>Error</strong>:
+<p><strong>Error</strong>:
 {% if report.policy.errorName == "not-found" %}
 Policy file not found.
 {% elif report.policy.errorName == "connect" %}
@@ -39,8 +36,6 @@ Other error while requesting <code>{{ report.policy.errorValue }}</code>.
 Polcy file is very big: {{ warning.value }}kB. It is suggested in the spec that the file shouldn't be bigger than 64kB.
 {% elif report.policy.errorName == "decode-error" %}
 Failed to decode the policy file from ASCII. The standard doesn't say anything about the encoding, but this is probably an error.
-{% elif report.policy.errorName == "invalid-linefeed" %}
-Policy file is written using an LF (Unix-style) newline, not CRLF (internet/Windows-style) newlines. The current specification does not allow using LF newlines, it requires CRLF newlines.
 {% elif report.policy.errorName == "json-decode" %}{# json format #}
 Could not decode JSON file.
 {% elif report.policy.errorName == "invalid-content-type" %}
@@ -68,6 +63,7 @@ Invalid <code>mx</code> entry: <code>{{ report.policy.errorValue }}</code>. It m
 {% else %}
 Unknown error: {{ report.policy.errorName }}.
 {% endif %}{# report.policy.errorName #}
+</p>
 {% endif %}{# report.policy.valid #}
 
 {% if report.policy.warnings %}
@@ -79,10 +75,12 @@ Unknown error: {{ report.policy.errorName }}.
 		Polcy file is quite big: {{ warning.value }}kB. It is suggested the file shouldn't be bigger than 64kB, but this is already a large file.
 		{% elif warning.message == "json-policy" %}
 		Using the older JSON policy format. The current spec uses a key-value format. Support for the JSON format will probably be removed from this tool in the future when common implementations (e.g. gmail.com) have progressed.
-		{% elif warning.message == "content-type-options" %}
-		Using an unknown parameter for the Content-Type header: <code>{{ warning.value }}</code>. The current spec allows the <a href="https://tools.ietf.org/html/rfc7231#section-3.1.1.1">extra parameter <code>charset</code></a>, but doesn't specify other parameters (why would you use them anyway?).
 		{% elif warning.message == "invalid-line" %}
 		Policy file contains an invalid line: <code>{{ warning.value }}</code>. Note that the current specification does not allow empty lines.
+		{% elif warning.message == "invalid-linefeed-unix" %}
+		Policy file is written using an LF (Unix-style) newline, not CRLF (internet/Windows-style) newlines. The current specification does not allow using LF newlines, it requires CRLF newlines.
+		{% elif warning.message == "invalid-linefeed-other" %}
+		Policy file is written using nonstandard newlines, not CRLF (internet/Windows-style) newlines. The current specification requires CRLF newlines.
 		{% elif warning.message == "duplicate-key" %}
 		Line with duplicate key found. This line will be ignored by well-behaved parsers.<br/>
 		<code>{{ warning.value.line }}</code>

@@ -83,13 +83,9 @@ def retrieveTXTRecord(result, domain, prefix, magic):
     otherResults = []
     for record in answers:
         if len(record.strings) < 1:
-            # Don't know whether this is allowed, but I keep it here just to be sure.
+            # This is actually possible, though I don't know whether it is
+            # allowed.
             continue
-        if len(record.strings) > 1:
-            # Undefined in the spec
-            # https://github.com/mrisher/smtp-sts/issues/168
-            result.warn('multiple-strings-undefined')
-        # assuming behaviour like in DKIM and SPF.
         if isinstance(record.strings[0], bytes):
             data = b''.join(record.strings).decode('ascii')
         else:
@@ -109,7 +105,7 @@ def retrieveTXTRecord(result, domain, prefix, magic):
 
     return dnsPolicies[0]
 
-def checkDNS(result, domain):
+def checkDNS_STS(result, domain):
     dnsPolicy = retrieveTXTRecord(result, domain, '_mta-sts', 'v=STSv1;')
     if dnsPolicy is None:
         # there was an error
@@ -122,21 +118,23 @@ def checkDNS(result, domain):
         # already covered in dns:no-valid-txt-record but checking it anyway
         return result.error('invalid-version-prefix')
 
-    # And what if the 'id' field is the 3rd field? This is currently impossible:
-    # https://github.com/mrisher/smtp-sts/issues/167
-    if len(fields) < 2:
-        return result.error('invalid-id', '')
-    if not fields[1].startswith('id='):
-        return result.error('invalid-id', fields[1][3:])
-    idvalue = fields[1][3:]
+    checkExtensionFields(fields[1:], result)
+
+    idValue = None
+    for field in fields[1:]:
+        if field.startswith('id='):
+            idValue = field[3:]
+
+    if not idValue:
+        return result.error('invalid-id', idValue or '')
+
     # Note: the 'id' value is case-sensitive, and just an identifier - there is
     # no version numbering with higher versions being later defined.
-    if not re.match('^[a-zA-Z0-9]{1,32}$', idvalue):
-        return result.error('invalid-id', idvalue)
+    if not re.match('^[a-zA-Z0-9]{1,32}$', idValue):
+        return result.error('invalid-id', idValue)
 
-    return checkExtensionFields(fields[2:], result)
 
-def checkReporting(result, domain):
+def checkDNS_TLSRPT(result, domain):
     dnsPolicy = retrieveTXTRecord(result, domain, '_smtp-tlsrpt', 'v=TLSRPTv1;')
     if dnsPolicy is None:
         # an error was returned
@@ -148,22 +146,24 @@ def checkReporting(result, domain):
     if fields[0] != 'v=TLSRPTv1':
         # already covered in no-valid-txt-record but checking it anyway
         return result.error('invalid-version-prefix', fields[0])
-    if len(fields) < 2:
-        return result.error('invalid-rua', '')
-    if not fields[1].startswith('rua='):
-        return result.error('invalid-rua', fields[1])
-    rua = fields[1][4:]
-    if '!' in rua:
-        return result.error('invalid-rua', fields[1])
+
+    checkExtensionFields(fields[1:], result)
+
+    ruafield = None
+    for field in fields:
+        if field.startswith('rua='):
+            ruafield = field
+    if '!' in ruafield:
+        return result.error('invalid-rua', ruafield)
+    rua = ruafield[4:]
     try:
         for part in re.split('[ \t]*,[ \t]*', rua):
             url = urllib.parse.urlparse(part)
             if url.scheme not in ['mailto', 'https']:
-                return result.error('invalid-rua', fields[1])
+                return result.error('invalid-rua', ruafield)
     except ValueError:
-        return result.error('invalid-rua', fields[1])
+        return result.error('invalid-rua', ruafield)
 
-    return checkExtensionFields(fields[2:], result)
 
 def checkExtensionFields(fields, result):
     for field in fields[2:]:
@@ -229,26 +229,31 @@ def checkPolicyFile(result, domain, policytype):
         mimetype, options = cgi.parse_header(contentType)
         if mimetype != 'text/plain':
             return result.error('invalid-content-type', contentType)
-        if contentType != 'text/plain':
-            print(list(options.keys()))
-            if list(options.keys()) not in ([], ['charset']):
-                # TODO spec says "additional charset parameters are allowed",
-                # nothing about other keys.
-                result.warn('content-type-options', contentType)
         info = {'mx': []}
-        lines = data.split('\r\n')
+        lines = data.splitlines(True)
         if lines[-1] == '':
             # Normally you would just 'continue' on empty lines, but in this
             # case we want to validate there are no empty lines before EOF.
             lines = lines[:-1]
+        has_lf_lines = False
+        has_other_newlines = False
         for line in lines:
+            if line.endswith('\n') and not line.endswith('\r\n'):
+                has_lf_lines = True
+            bare_line = line.rstrip('\r\n')
+            if line not in [bare_line, bare_line+'\r\n', bare_line+'\n']:
+                # TODO this is probably a strange newline, like \v or \u2028
+                print('weird newline:', repr(line))
+                has_other_newlines = True
+            line = bare_line
             if ':' not in line:
+                result.warn('invalid-line', line)
+                continue
+            if not re.match('^[ \t]*[a-zA-Z0-9][a-zA-Z0-9_.-]{0,31}:[ \t]*[\x21-\x3a\x3c\x3e-\x7e]{1,}[ \t]*', line):
                 result.warn('invalid-line', line)
                 continue
             key, value = line.split(':', 1)
             value = value.strip(' \t')
-            if '\n' in value:
-                return result.error('invalid-linefeed')
             if key == 'mx':
                 info['mx'].append(value)
             else:
@@ -256,6 +261,10 @@ def checkPolicyFile(result, domain, policytype):
                     result.warn('duplicate-key', {'key': key, 'value': value, 'line': line})
                     continue
                 info[key] = value
+        if has_lf_lines:
+            result.warn('invalid-linefeed-unix')
+        if has_other_newlines:
+            result.warn('invalid-linefeed-other')
     else: # json file
         try:
             info = json.loads(data)
@@ -270,7 +279,7 @@ def checkPolicyFile(result, domain, policytype):
         return result.error('invalid-version', info['version'])
     if 'mode' not in info:
         return result.error('no-mode')
-    if info['mode'] not in ['enforce', 'report']:
+    if info['mode'] not in ['enforce', 'report', 'none']:
         return result.error('invalid-mode', info['mode'])
     if 'max_age' not in info:
         return result.error('no-max-age')
@@ -389,8 +398,19 @@ def checkMX(result, domain, policyNames=None):
         if not data.get('valid'):
             result.valid = False
 
+# algorithm from Appendix 2 of the draft (function isWildcardMatch and
+# certMatches)
 
-# algorithm from Appendix 2 of the draft (function certMatches)
+def isWildcardMatch(pat, host):
+    # Literal matches are true.
+    if pat == host:
+        return True
+    if pat[0] == '.':
+        parts = host.split('.', 2)
+        if len(parts) > 1 and parts[1] == pat[1:]:
+            return True
+    return False
+
 def certMatches(certNames, policyNames):
     for san in certNames:
         if len(san) < 2:
@@ -401,11 +421,7 @@ def certMatches(certNames, policyNames):
                 if san[1] != '.':
                     # Invalid wildcard!
                     continue
-            if san[0] == '.' and mx.endswith(san):
-                return True
-            if mx[0] == '.' and san.endswith(mx):
-                return True
-            if mx == san:
+            if isWildcardMatch(san, mx) or isWildcardMatch(mx, san):
                 return True
     return False
 
@@ -417,9 +433,9 @@ def checkPolicy(domain):
     if not domainPattern.match(domain):
         return report.error('invalid-domain', domain)
 
-    checkDNS(report.dns, domain)
+    checkDNS_STS(report.dns, domain)
     yield (report, 'mta-sts')
-    checkReporting(report.tlsrpt, domain)
+    checkDNS_TLSRPT(report.tlsrpt, domain)
     yield (report, 'tlsrpt')
     checkPolicyFile(report.policy, domain, 'txt')
     if report.policy.errorName in ['policy-not-found', 'http-status']:

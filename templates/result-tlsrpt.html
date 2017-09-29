@@ -49,9 +49,7 @@ Invalid "rua" field <code>{{ report.tlsrpt.errorValue }}</code>. It must either 
 <ul>
 	{% for warning in report.tlsrpt.warnings %}
 	<li>
-		{% if warning.message == "multiple-strings-undefined" %}
-		This TXT record contains multiple strings. This probably means it is very long - over 255 bytes. The current MTA-STS standard doesn't specify what should happen with multiple strings, but like similar standards (<a href="https://tools.ietf.org/html/rfc4408#section-3.1.3">SPF</a>, <a href="https://tools.ietf.org/html/rfc6376#section-3.6.2.2">DKIM</a>) they will probably be concatenated together. See <a href="https://github.com/mrisher/smtp-sts/issues/168">issue #168</a> for details.
-		{% elif warning.message == "unknown-ext-field" %}
+		{% if warning.message == "unknown-ext-field" %}
 		There is an unrecognized field <code>{{ warning.value }}</code> in the TXT record. While this is not a problem and well-behaved parsers should ignore the field, it may be best to remove it just to be sure.
 		{% else %}
 		Unknown warning: {{ warning.message }}
