@@ -37,7 +37,7 @@
 
 			<ul>
 				<li>Check that your host has <a href="https://en.internet.nl/test-mail/">properly configured STARTTLS</a></li>
-				<li>Add a TLSRPT DNS TXT record at <code>_tlsrpt</code> on your domain, e.g. <code>_tlsrpt.example.com</code>, with something like <code class="text-nowrap">v=TLSRPTv1; rua=mailto:mta-sts@example.com</code>.</li>
+				<li>Add a TLSRPT DNS TXT record at <code>_smtp-tlsrpt</code> on your domain, e.g. <code>_smtp-tlsrpt.example.com</code>, with something like <code class="text-nowrap">v=TLSRPTv1; rua=mailto:mta-sts@example.com</code>.</li>
 				<li>Add a MTA-STS DNS TXT record at <code>_mta-sts</code> on your domain, e.g. <code>_mta-sts.example.com</code>, with something like <code class="text-nowrap">v=STSv1; id=20160831085700Z</code>.</li>
 				<li>Add a subdomain <code>mta-sts</code> to your domain (note the lack of an underscore) and serve a policy file on <code>https://mta-sts.example.com/.well-known/mta-sts.txt</code>. Here is an example policy file:
 					<pre class="ml-4 mt-2 mb-2">
