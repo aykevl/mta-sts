@@ -279,7 +279,7 @@ def checkPolicyFile(result, domain, policytype):
         return result.error('invalid-version', info['version'])
     if 'mode' not in info:
         return result.error('no-mode')
-    if info['mode'] not in ['enforce', 'report', 'none']:
+    if info['mode'] not in ['enforce', 'testing', 'none']:
         return result.error('invalid-mode', info['mode'])
     if 'max_age' not in info:
         return result.error('no-max-age')
