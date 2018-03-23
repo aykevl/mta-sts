@@ -49,14 +49,13 @@ class Report:
 
     def error(self, message, value=None):
         ''' Global error '''
-        self.valid = False
         self.errorName = message
         self.errorValue = value
         return self
 
     @property
     def valid(self):
-        return self.dns.valid and self.tlsrpt.valid and self.policy.valid and self.mx.valid
+        return self.errorName is None and self.dns.valid and self.tlsrpt.valid and self.policy.valid and self.mx.valid
 
     @property
     def hasWarnings(self):
@@ -311,8 +310,7 @@ def checkPolicyFile(result, domain):
         if key not in ['version', 'mode', 'max_age', 'mx']:
             result.warn('unknown-key', {'key': key, 'value': value})
 
-
-def checkMX(result, domain, policyNames=None):
+def getMX(result, domain):
     try:
         answers = dns.resolver.query(domain, 'MX')
     except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.Timeout):
@@ -328,73 +326,71 @@ def checkMX(result, domain, policyNames=None):
         parts.reverse()
         return preference, parts
 
-    mxs = list(mxs.items())
-    mxs.sort(key=mxsortkey)
+    return sorted(mxs.items(), key=mxsortkey)
 
-    result.value = []
+def checkMailserver(result, mx, preference, policyNames):
+    data = {'mx': mx, 'preference': preference}
+    result.value.append(data)
 
-    for mx, preference in mxs:
-        data = {'mx': mx, 'preference': preference}
-        result.value.append(data)
+    conn = None
+    names = set()
+    cert = None
+    try:
+        cert = {}
+        if not domainPattern.match(mx):
+            data['error'] = '!invalid-mx'
+        elif len(result.value) > 5:
+            data['error'] = '!skip'
+        else:
+            # TODO test MX label validity
+            context = ssl.create_default_context()
+            context.options |= ssl.OP_NO_TLSv1
+            context.options |= ssl.OP_NO_TLSv1_1
+            # we do our own hostname checking
+            context.check_hostname = False
+            conn = smtplib.SMTP(mx, port=25, timeout=30)
+            conn.starttls(context=context)
+            cert = conn.sock.getpeercert()
 
-        conn = None
-        names = set()
-        cert = None
-        try:
-            cert = {}
-            if not domainPattern.match(mx):
-                data['error'] = '!invalid-mx'
-            elif len(result.value) > 5:
-                data['error'] = '!skip'
-            else:
-                # TODO test MX label validity
-                context = ssl.create_default_context()
-                context.options |= ssl.OP_NO_TLSv1
-                context.options |= ssl.OP_NO_TLSv1_1
-                # we do our own hostname checking
-                context.check_hostname = False
-                conn = smtplib.SMTP(mx, port=25, timeout=30)
-                conn.starttls(context=context)
-                cert = conn.sock.getpeercert()
+        # TODO check for expired certificate?
 
-            # TODO check for expired certificate?
+        for san in cert.get('subjectAltName', ()):
+            if san[0] == 'DNS':
+                names.add(san[1])
+    except ssl.SSLError as e:
+        data['error'] = e.reason
+    except (TimeoutError, socket.timeout):
+        data['error'] = '!timeout'
+    except smtplib.SMTPException as e:
+        data['error'] = e
+    except OSError as e:
+        data['error'] = e.strerror
+    finally:
+        # try to close the connection
+        if conn is not None:
+            conn.close()
 
-            for san in cert.get('subjectAltName', ()):
-                if san[0] == 'DNS':
-                    names.add(san[1])
-        except ssl.SSLError as e:
-            data['error'] = e.reason
-        except (TimeoutError, socket.timeout):
-            data['error'] = '!timeout'
-        except smtplib.SMTPException as e:
-            data['error'] = e
-        except OSError as e:
-            data['error'] = e.strerror
-        finally:
-            # try to close the connection
-            if conn is not None:
-                conn.close()
+    if cert is not None and not names and not data.get('error'):
+        # does this actually happen?
+        data['error'] = '!unknown'
 
-        if cert is not None and not names and not data.get('error'):
-            # does this actually happen?
-            data['error'] = '!unknown'
+    names = list(names)
+    def domainsortkey(n):
+        n = n.split('.')
+        n.reverse()
+        return n
+    names.sort(key=domainsortkey)
+    data['certnames'] = names
 
-        names = list(names)
-        def domainsortkey(n):
-            n = n.split('.')
-            n.reverse()
-            return n
-        names.sort(key=domainsortkey)
-        data['certnames'] = names
+    if policyNames is not None:
+        if certMatches(names, policyNames):
+            data['valid'] = True
+        else:
+            data['valid'] = False
 
-        if policyNames is not None:
-            if certMatches(names, policyNames):
-                data['valid'] = True
-            else:
-                data['valid'] = False
-
-        if not data.get('valid'):
-            result.valid = False
+    if not data.get('valid'):
+        result.valid = False
+    return data
 
 # algorithm from Appendix 2 of the draft (function isWildcardMatch and
 # certMatches)
@@ -425,21 +421,57 @@ def certMatches(certNames, policyNames):
     return False
 
 
-def checkPolicy(domain):
+def renderSummary(report):
+    with app.app_context():
+        summary = flask.render_template('summary.html', report=report)
+    return makeEventSource({'summary': summary, 'close': True})
+
+def renderSubReport(report, reportName, valid):
+    with app.app_context():
+        html = flask.render_template('result-%s.html' % reportName, report=report)
+    return makeEventSource({
+        'reportName': reportName,
+        'html':       html,
+        'verdict':    {True: 'ok', False: 'fail', None: None}[valid]})
+
+def makeReport(domain):
     report = Report(domain)
 
     # See: https://stackoverflow.com/a/106223/559350
     if not domainPattern.match(domain):
-        return report.error('invalid-domain', domain)
+        report.error('invalid-domain', domain)
+        yield renderSummary(report)
+        return
 
     checkDNS_STS(report.dns, domain)
-    yield (report, 'mta-sts', report.dns.valid)
+    yield renderSubReport(report, 'mta-sts', report.dns.valid)
+
     checkDNS_TLSRPT(report.tlsrpt, domain)
-    yield (report, 'tlsrpt', report.tlsrpt.valid)
+    yield renderSubReport(report, 'tlsrpt', report.tlsrpt.valid)
+
     checkPolicyFile(report.policy, domain)
-    yield (report, 'policy', report.policy.valid)
-    checkMX(report.mx, domain, report.policy.value.get('info', {}).get('mx', None))
-    yield (report, 'mx', report.mx.valid)
+    yield renderSubReport(report, 'policy', report.policy.valid)
+
+    mailservers = getMX(report.mx, domain)
+    if report.mx.valid:
+        report.mx.value = []
+
+        policyNames = report.policy.value.get('info', {}).get('mx', None)
+        yield renderSubReport(report, 'mx', None)
+        for mx, preference in mailservers:
+            serverResult = checkMailserver(report.mx, mx, preference, policyNames)
+            with app.app_context():
+                html = flask.render_template('result-mx-server.html', mx=serverResult)
+            yield makeEventSource({
+                'reportName': 'mx',
+                'part':       html})
+        yield makeEventSource({
+            'reportName': 'mx',
+            'verdict': {True: 'ok', False: 'fail', None: None}[report.mx.valid]})
+    else:
+        yield renderSubReport(report, 'mx', report.mx.valid)
+
+    yield renderSummary(report)
 
 app = flask.Flask(__name__)
 app.config['PROPAGATE_EXCEPTIONS'] = True
@@ -463,19 +495,7 @@ def check(path=None):
     if not domain:
         return 'No domain given.'
 
-    def generate():
-        for report, reportName, valid in checkPolicy(domain):
-            with app.app_context():
-                html = flask.render_template('result-%s.html' % reportName, report=report)
-            yield makeEventSource({
-                'reportName': reportName,
-                'html':       html,
-                'verdict':    {True: 'ok', False: 'fail'}[valid]})
-        with app.app_context():
-            summary = flask.render_template('summary.html', report=report)
-        yield makeEventSource({'summary': summary, 'close': True})
-
-    response = flask.Response(generate(), mimetype='text/event-stream')
+    response = flask.Response(makeReport(domain), mimetype='text/event-stream')
     response.headers['Cache-Control'] = 'no-cache'
     # Disable buffering - required for EventSource.
     # See: http://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_buffering

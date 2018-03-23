@@ -86,9 +86,15 @@ function onmessage(message) {
   }
   if (message.reportName) {
     var div = report.querySelector('.report-' + message.reportName);
-    div.querySelector('.contents').innerHTML = message.html;
-    div.querySelector('h3').classList.remove('loading');
-    div.querySelector('h3').classList.add(message.verdict);
+    if (message.part) {
+      div.querySelector('.contents .parts').innerHTML += message.part;
+    } else if (message.html) {
+      div.querySelector('.contents').innerHTML = message.html;
+    }
+    if (message.verdict) {
+      div.querySelector('h3').classList.remove('loading');
+      div.querySelector('h3').classList.add(message.verdict);
+    }
   }
   if (message.close) {
     button.disabled = false;

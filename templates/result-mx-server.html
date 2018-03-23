@@ -1,0 +1,29 @@
+<dt>
+	{{ mx.mx }}
+	<span class="font-weight-normal">({{ mx.preference }})</span>
+	{% if mx.valid %}<span class="icon-check">✔</span>
+	{% else %}<span class="icon-no">✖</span>
+	{% endif %}
+</dt>
+<dd>
+	{% if mx.error %}
+	<strong>Error</strong>:
+	{% if mx.error == "!invalid-mx" %}
+	Invalid MX.
+	{% elif mx.error == "!timeout" %}
+	Timeout while connecting to the mail server.
+	{% elif mx.error == "!skip" %}
+	Skipping this MX: already processed too much.
+	{% elif mx.error == "!unknown" %}
+	Unknown.
+	{% elif mx.error == "NO_PROTOCOLS_AVAILABLE" %}
+	This SMTP server does not support modern TLS protocols. Client support for TLS v1.2 or higher is required in MTA-STS.
+	{% else %}
+	<code>{{ mx.error }}</code>
+	{% endif %}
+	<br/>
+	{% endif %}
+	{% for name in mx.certnames %}
+	<code class="text-nowrap">{{ name }}</code>
+	{% endfor %}
+</dd>
