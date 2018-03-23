@@ -8,9 +8,7 @@ Policy: <a href="{{ report.policy.value.url }}">{{ report.policy.value.url }}</a
 </p>
 <pre class="ml-4">{{ report.policy.value.data }}</pre>
 {% endif %}
-{% if report.policy.valid %}
-<p><strong>Note</strong>: while the current draft spec specifies a key-value format, current implementations (<a href="https://mta-sts.yahoo.com/.well-known/mta-sts.json">Yahoo.com</a>, <a href="https://mta-sts.gmail.com/.well-known/mta-sts.json">Gmail.com</a>) use a JSON format.</p>
-{% else %}{# report.policy.valid #}
+{% if not report.policy.valid %}
 <p><strong>Error</strong>:
 {% if report.policy.errorName == "not-found" %}
 Policy file not found.
@@ -40,8 +38,6 @@ Other error while requesting <code>{{ report.policy.errorValue }}</code>.
 Polcy file is very big: {{ warning.value }}kB. It is suggested in the spec that the file shouldn't be bigger than 64kB.
 {% elif report.policy.errorName == "decode-error" %}
 Failed to decode the policy file from ASCII. The standard doesn't say anything about the encoding, but this is probably an error.
-{% elif report.policy.errorName == "json-decode" %}{# json format #}
-Could not decode JSON file.
 {% elif report.policy.errorName == "invalid-content-type" %}
 Invalid Content-Type header <code>{{ report.policy.errorValue }}</code>. It must be "text/plain".
 {% elif report.policy.errorName == "no-version" %}
@@ -58,8 +54,6 @@ No <code>max_age</code> field was specified. It must be set to the amount of sec
 Invalid <code>max_age</code> field was specified: <code>{{ report.policy.errorValue }}</code>. It must be a non-negative integer. The suggested amount is at least in the order of weeks.
 {% elif report.policy.errorName == "short-max-age" %}
 Very short <code>max_age</code> field specified. It is less than a day with {{ report.policy.errorValue }} seconds. The suggested amount is at least in the order of weeks.
-{% elif report.policy.errorName == "invalid-mx-entries" %}{# json format #}
-Invalid <code>mx</code> key specified. It has to be a list.
 {% elif report.policy.errorName == "no-mx-entries" %}
 No <code>mx</code> fields specified. Indicates the hostnames (Common Name or SAN) for which the mail server certificate is valid. At least one of the hostnames specified in the policy must be present in the certificate.
 {% elif report.policy.errorName == "invalid-mx-entry" %}
@@ -77,8 +71,6 @@ Unknown error: {{ report.policy.errorName }}.
 	<li>
 		{% if warning.message == "big-file" %}
 		Polcy file is quite big: {{ warning.value }}kB. It is suggested the file shouldn't be bigger than 64kB, but this is already a large file.
-		{% elif warning.message == "json-policy" %}
-		Using the older JSON policy format. The current spec uses a key-value format. Support for the JSON format will probably be removed from this tool in the future when common implementations (e.g. gmail.com) have progressed.
 		{% elif warning.message == "invalid-line" %}
 		Policy file contains an invalid line: <code>{{ warning.value }}</code>. Note that the current specification does not allow empty lines.
 		{% elif warning.message == "invalid-linefeed-unix" %}

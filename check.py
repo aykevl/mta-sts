@@ -174,12 +174,11 @@ def checkExtensionFields(fields, result):
         result.warn('unknown-ext-field', field)
 
 
-def checkPolicyFile(result, domain, policytype):
+def checkPolicyFile(result, domain):
     host = 'mta-sts.'+domain
-    path = '/.well-known/mta-sts.' + policytype
+    path = '/.well-known/mta-sts.txt'
     url = 'https://' + host + path
     result.value = {
-        'type': policytype,
         'url': url,
     }
     try:
@@ -229,52 +228,46 @@ def checkPolicyFile(result, domain, policytype):
         return result.error('decode-error')
     result.value['data'] = data
 
-    if policytype in ['policy', 'txt']:
-        contentType = res.getheader('Content-Type')
-        mimetype, options = cgi.parse_header(contentType)
-        if mimetype != 'text/plain':
-            return result.error('invalid-content-type', contentType)
-        info = {'mx': []}
-        lines = data.splitlines(True)
-        if lines[-1] == '':
-            # Normally you would just 'continue' on empty lines, but in this
-            # case we want to validate there are no empty lines before EOF.
-            lines = lines[:-1]
-        has_lf_lines = False
-        has_other_newlines = False
-        for line in lines:
-            if line.endswith('\n') and not line.endswith('\r\n'):
-                has_lf_lines = True
-            bare_line = line.rstrip('\r\n')
-            if line not in [bare_line, bare_line+'\r\n', bare_line+'\n']:
-                # TODO this is probably a strange newline, like \v or \u2028
-                print('weird newline:', repr(line))
-                has_other_newlines = True
-            line = bare_line
-            if ':' not in line:
-                result.warn('invalid-line', line)
+    contentType = res.getheader('Content-Type')
+    mimetype, options = cgi.parse_header(contentType)
+    if mimetype != 'text/plain':
+        return result.error('invalid-content-type', contentType)
+    info = {'mx': []}
+    lines = data.splitlines(True)
+    if lines[-1] == '':
+        # Normally you would just 'continue' on empty lines, but in this
+        # case we want to validate there are no empty lines before EOF.
+        lines = lines[:-1]
+    has_lf_lines = False
+    has_other_newlines = False
+    for line in lines:
+        if line.endswith('\n') and not line.endswith('\r\n'):
+            has_lf_lines = True
+        bare_line = line.rstrip('\r\n')
+        if line not in [bare_line, bare_line+'\r\n', bare_line+'\n']:
+            # TODO this is probably a strange newline, like \v or \u2028
+            print('weird newline:', repr(line))
+            has_other_newlines = True
+        line = bare_line
+        if ':' not in line:
+            result.warn('invalid-line', line)
+            continue
+        if not re.match('^[ \t]*[a-zA-Z0-9][a-zA-Z0-9_.-]{0,31}:[ \t]*[\x21-\x3a\x3c\x3e-\x7e]{1,}[ \t]*', line):
+            result.warn('invalid-line', line)
+            continue
+        key, value = line.split(':', 1)
+        value = value.strip(' \t')
+        if key == 'mx':
+            info['mx'].append(value)
+        else:
+            if key in info:
+                result.warn('duplicate-key', {'key': key, 'value': value, 'line': line})
                 continue
-            if not re.match('^[ \t]*[a-zA-Z0-9][a-zA-Z0-9_.-]{0,31}:[ \t]*[\x21-\x3a\x3c\x3e-\x7e]{1,}[ \t]*', line):
-                result.warn('invalid-line', line)
-                continue
-            key, value = line.split(':', 1)
-            value = value.strip(' \t')
-            if key == 'mx':
-                info['mx'].append(value)
-            else:
-                if key in info:
-                    result.warn('duplicate-key', {'key': key, 'value': value, 'line': line})
-                    continue
-                info[key] = value
-        if has_lf_lines:
-            result.warn('invalid-linefeed-unix')
-        if has_other_newlines:
-            result.warn('invalid-linefeed-other')
-    else: # json file
-        try:
-            info = json.loads(data)
-        except ValueError:
-            return result.error('json-decode')
+            info[key] = value
+    if has_lf_lines:
+        result.warn('invalid-linefeed-unix')
+    if has_other_newlines:
+        result.warn('invalid-linefeed-other')
 
     result.value['info'] = info
 
@@ -304,8 +297,6 @@ def checkPolicyFile(result, domain, policytype):
         result.warn('long-max-age', max_age/86400)
     if 'mx' not in info or len(info['mx']) < 1:
         return result.error('no-mx-entries')
-    if type(info['mx']) != list: # json
-        return result.error('invalid-mx-entries')
     for mx in info['mx']:
         # ABNF:
         #     1*(ALPHA / DIGIT / "_" / "-" / ".")
@@ -443,13 +434,7 @@ def checkPolicy(domain):
     yield (report, 'mta-sts')
     checkDNS_TLSRPT(report.tlsrpt, domain)
     yield (report, 'tlsrpt')
-    checkPolicyFile(report.policy, domain, 'txt')
-    if report.policy.errorName in ['policy-not-found', 'http-status']:
-        jsonpolicy = Result()
-        jsonpolicy.warn('json-policy')
-        checkPolicyFile(jsonpolicy, domain, 'json')
-        if jsonpolicy.errorName not in ['policy-not-found', 'http-status']:
-            report.policy = jsonpolicy
+    checkPolicyFile(report.policy, domain)
     yield (report, 'policy')
     checkMX(report.mx, domain, report.policy.value.get('info', {}).get('mx', None))
     yield (report, 'mx')
