@@ -1,4 +1,8 @@
 
+body > .container-fluid {
+	max-width: 50rem;
+}
+
 #templates {
 	display: none;
 }

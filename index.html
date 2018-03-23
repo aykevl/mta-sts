@@ -5,19 +5,19 @@
 		<title>Online MTA-STS testing tool</title>
 		<meta charset="utf-8"/>
 		<meta name="viewport" content="width=device-width, initial-scale=1"/>
-		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
 		<link rel="stylesheet" href="mta-sts.css?v=2"/>
 		<script src="mta-sts.js" src="mta-sts.js?v=2" defer></script>
 	</head>
 	<body>
-		<div class="container">
+		<div class="container-fluid">
 			<h1>Online MTA-STS testing tool</h1>
 
 			<!-- pattern: https://stackoverflow.com/a/106223/559350 -->
 			<p>
 				<form class="domain input-group input-group-lg">
 					<input placeholder="gmail.com" type="text" autocapitalize="none" autocorrect="off" inputmode="verbatim" class="form-control" required pattern="(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])">
-					<span class="input-group-btn">
+					<span class="input-group-append">
 						<button class="btn btn-primary">Check!</button>
 					</span>
 				</form>
@@ -37,8 +37,8 @@
 
 			<ul>
 				<li>Check that your host has <a href="https://en.internet.nl/test-mail/">properly configured STARTTLS</a></li>
-				<li>Add a TLSRPT DNS TXT record at <code>_smtp-tlsrpt</code> on your domain, e.g. <code>_smtp-tlsrpt.example.com</code>, with something like <code class="text-nowrap">v=TLSRPTv1; rua=mailto:mta-sts@example.com</code>.</li>
-				<li>Add a MTA-STS DNS TXT record at <code>_mta-sts</code> on your domain, e.g. <code>_mta-sts.example.com</code>, with something like <code class="text-nowrap">v=STSv1; id=20160831085700Z</code>.</li>
+				<li>Add a TLSRPT DNS TXT record at <code>_smtp-tlsrpt</code> on your domain, e.g. <code>_smtp-tlsrpt.example.com</code>, with something like <code>v=TLSRPTv1; rua=mailto:mta-sts@example.com</code>.</li>
+				<li>Add a MTA-STS DNS TXT record at <code>_mta-sts</code> on your domain, e.g. <code>_mta-sts.example.com</code>, with something like <code>v=STSv1; id=20160831085700Z</code>.</li>
 				<li>Add a subdomain <code>mta-sts</code> to your domain (note the lack of an underscore) and serve a policy file on <code>https://mta-sts.example.com/.well-known/mta-sts.txt</code>. Here is an example policy file:
 					<pre class="ml-4 mt-2 mb-2">
 version: STSv1
