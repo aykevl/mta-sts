@@ -40,7 +40,7 @@ class Result:
 class Report:
     def __init__(self, domain):
         self.domain = domain
-        self.dns = Result()
+        self.sts = Result()
         self.tlsrpt = Result()
         self.policy = Result()
         self.mx = Result()
@@ -55,11 +55,11 @@ class Report:
 
     @property
     def valid(self):
-        return self.errorName is None and self.dns.valid and self.tlsrpt.valid and self.policy.valid and self.mx.valid
+        return self.errorName is None and self.sts.valid and self.tlsrpt.valid and self.policy.valid and self.mx.valid
 
     @property
     def hasWarnings(self):
-        return self.dns.warnings or self.tlsrpt.warnings or self.policy.warnings or self.mx.warnings
+        return self.sts.warnings or self.tlsrpt.warnings or self.policy.warnings or self.mx.warnings
 
 def retrieveTXTRecord(result, domain, prefix, magic):
     fullDomain = prefix + '.' + domain
@@ -443,8 +443,8 @@ def makeReport(domain):
         yield renderSummary(report)
         return
 
-    checkDNS_STS(report.dns, domain)
-    yield renderSubReport(report, 'mta-sts', report.dns.valid)
+    checkDNS_STS(report.sts, domain)
+    yield renderSubReport(report, 'mta-sts', report.sts.valid)
 
     checkDNS_TLSRPT(report.tlsrpt, domain)
     yield renderSubReport(report, 'tlsrpt', report.tlsrpt.valid)

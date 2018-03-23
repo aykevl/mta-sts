@@ -1,53 +1,53 @@
 <p>
 	Policy:
-	{% if report.dns.value %}
-		<code>{{ report.dns.value }}</code>
+	{% if report.sts.value %}
+		<code>{{ report.sts.value }}</code>
 	{% else %}
 		none
 	{% endif %}
 </p>
 <p>
-{% if not report.dns.valid %}
+{% if not report.sts.valid %}
 <strong>Error</strong>:
-{% if report.dns.errorName == "invalid-domain" %}
-Cannot resolve DNS: invalid syntax for domain <code>{{ report.dns.errorValue }}</code>.
-{% elif report.dns.errorName == "no-domain" %}
-Cannot resolve DNS: domain <code>{{ report.dns.errorValue }}</code> does not exist.
-{% elif report.dns.errorName == "no-answer" %}
-Cannot resolve DNS: no answer for <code>{{ report.dns.errorValue }}</code>.
-{% elif report.dns.errorName == "timeout" %}
-Cannot resolve DNS: timeout for <code>{{ report.dns.errorValue }}</code>.
-{% elif report.dns.errorName == "multiple-records" %}
+{% if report.sts.errorName == "invalid-domain" %}
+Cannot resolve DNS: invalid syntax for domain <code>{{ report.sts.errorValue }}</code>.
+{% elif report.sts.errorName == "no-domain" %}
+Cannot resolve DNS: domain <code>{{ report.sts.errorValue }}</code> does not exist.
+{% elif report.sts.errorName == "no-answer" %}
+Cannot resolve DNS: no answer for <code>{{ report.sts.errorValue }}</code>.
+{% elif report.sts.errorName == "timeout" %}
+Cannot resolve DNS: timeout for <code>{{ report.sts.errorValue }}</code>.
+{% elif report.sts.errorName == "multiple-records" %}
 Multiple TXT records have been returned. This is disallowed by the standard.
 <ul>
-	{% for record in report.dns.errorValue %}
+	{% for record in report.sts.errorValue %}
 	<li><code>{{ record }}</code></li>
 	{% endfor %}
 </ul>
-{% elif report.dns.errorName == "no-valid-txt-record" %}
+{% elif report.sts.errorName == "no-valid-txt-record" %}
 Some TXT records were found, but none of them started with the magic string <code>v=STSv1;</code>:
 <ul>
-	{% for record in report.dns.errorValue %}
+	{% for record in report.sts.errorValue %}
 	<li><code>{{ record }}</code></li>
 	{% endfor %}
 </ul>
-{% elif report.dns.errorName == "no-txt-record" %}
+{% elif report.sts.errorName == "no-txt-record" %}
 No TXT records have been found.
-{% elif report.dns.errorName == "invalid-version-prefix" %}
-Invalid version prefix. Must be <code>v=STSv1</code>, not <code>{{ report.dns.errorValue }}</code>.
-{% elif report.dns.errorName == "invalid-id" %}
-The <code>id</code> value (<code>{{ report.dns.errorValue }}</code>) may only contain alphanumeric characters and must be 1-32 characters long.
-{% elif report.dns.errorName == "invalid-ext-field" %}
-There is an extra field <code>{{ report.dns.errorValue }}</code> which is invalid.
+{% elif report.sts.errorName == "invalid-version-prefix" %}
+Invalid version prefix. Must be <code>v=STSv1</code>, not <code>{{ report.sts.errorValue }}</code>.
+{% elif report.sts.errorName == "invalid-id" %}
+The <code>id</code> value (<code>{{ report.sts.errorValue }}</code>) may only contain alphanumeric characters and must be 1-32 characters long.
+{% elif report.sts.errorName == "invalid-ext-field" %}
+There is an extra field <code>{{ report.sts.errorValue }}</code> which is invalid.
 {% else %}
-Unknown error: {{ report.dns.errorName }}
-{% endif %}{# report.dns.errorName #}
-{% endif %}{# report.dns.valid #}
+Unknown error: {{ report.sts.errorName }}
+{% endif %}{# report.sts.errorName #}
+{% endif %}{# report.sts.valid #}
 
-{% if report.dns.warnings %}
+{% if report.sts.warnings %}
 <p><strong>Warnings</strong>:</p>
 <ul>
-	{% for warning in report.dns.warnings %}
+	{% for warning in report.sts.warnings %}
 	<li>
 		{% if warning.message == "unknown-ext-field" %}
 		There is an unrecognized field <code>{{ warning.value }}</code> in the TXT record. While this is not a problem and well-behaved parsers should ignore the field, it may be best to remove it just to be sure.
@@ -55,6 +55,6 @@ Unknown error: {{ report.dns.errorName }}
 		Unknown warning: {{ warning.message }}
 		{% endif %}{# warning.message #}
 	</li>
-	{% endfor %}{# report.dns.warnings #}
+	{% endfor %}{# report.sts.warnings #}
 </ul>
-{% endif %}{# report.dns.warnings #}
+{% endif %}{# report.sts.warnings #}
