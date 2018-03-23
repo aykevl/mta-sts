@@ -12,7 +12,7 @@ function onsubmit(e) {
 
   button.disabled = true;
   summary.innerHTML = document.querySelector('#templates > .loading').innerHTML;
-  report.innerHTML = '';
+  report.innerHTML = document.querySelector('#templates > .template-report').innerHTML;
 
   var domain = input.value;
   var url = API+'?domain='+domain;
@@ -84,11 +84,11 @@ function onmessage(message) {
   if (message.summary) {
     summary.innerHTML = message.summary;
   }
-  if (message.result) {
-    var div = document.createElement('div');
-    div.innerHTML = message.html;
-    div.appendChild(document.createElement('hr'));
-    report.appendChild(div);
+  if (message.reportName) {
+    var div = report.querySelector('.report-' + message.reportName);
+    div.querySelector('.contents').innerHTML = message.html;
+    div.querySelector('h3').classList.remove('loading');
+    div.querySelector('h3').classList.add(message.verdict);
   }
   if (message.close) {
     button.disabled = false;

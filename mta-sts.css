@@ -38,6 +38,11 @@ dd {
 	content: '✖';
 	color: red;
 }
+#report h3.loading:before {
+	content: '⚙';
+	color: gray;
+	animation: spin 4s linear infinite;
+}
 #report h3:after {
 	content: "";
 	display: block;
@@ -46,4 +51,11 @@ dd {
 #report h3 div,
 #report h3 div {
 	margin-left: 48px;
+	line-height: 48px;
+}
+
+@keyframes spin {
+	100% {
+		transform:rotate(360deg);
+	}
 }

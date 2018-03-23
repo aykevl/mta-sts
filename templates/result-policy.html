@@ -1,7 +1,3 @@
-<h3 {% if report.policy.valid %}class="ok"{%else%}class="fail"{%endif%}>
-	<div>Policy file</div>
-</h3>
-
 {% if report.policy.value %}
 <p>
 Policy: <a href="{{ report.policy.value.url }}">{{ report.policy.value.url }}</a>

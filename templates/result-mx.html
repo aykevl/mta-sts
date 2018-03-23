@@ -1,7 +1,3 @@
-<h3 {% if report.mx.valid %}class="ok"{%else%}class="fail"{%endif%}>
-	<div>Certificate check</div>
-</h3>
-
 {% if report.mx.value %}
 {% if not report.policy.value.info or not report.policy.value.info.mx %}
 <p><strong>Note</strong>: No valid policy found so can't test MX servers.</p>

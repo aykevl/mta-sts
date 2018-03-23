@@ -433,13 +433,13 @@ def checkPolicy(domain):
         return report.error('invalid-domain', domain)
 
     checkDNS_STS(report.dns, domain)
-    yield (report, 'mta-sts')
+    yield (report, 'mta-sts', report.dns.valid)
     checkDNS_TLSRPT(report.tlsrpt, domain)
-    yield (report, 'tlsrpt')
+    yield (report, 'tlsrpt', report.tlsrpt.valid)
     checkPolicyFile(report.policy, domain)
-    yield (report, 'policy')
+    yield (report, 'policy', report.policy.valid)
     checkMX(report.mx, domain, report.policy.value.get('info', {}).get('mx', None))
-    yield (report, 'mx')
+    yield (report, 'mx', report.mx.valid)
 
 app = flask.Flask(__name__)
 app.config['PROPAGATE_EXCEPTIONS'] = True
@@ -464,10 +464,13 @@ def check(path=None):
         return 'No domain given.'
 
     def generate():
-        for report, result in checkPolicy(domain):
+        for report, reportName, valid in checkPolicy(domain):
             with app.app_context():
-                html = flask.render_template('result-%s.html' % result, report=report)
-            yield makeEventSource({'result': result, 'html': html})
+                html = flask.render_template('result-%s.html' % reportName, report=report)
+            yield makeEventSource({
+                'reportName': reportName,
+                'html':       html,
+                'verdict':    {True: 'ok', False: 'fail'}[valid]})
         with app.app_context():
             summary = flask.render_template('summary.html', report=report)
         yield makeEventSource({'summary': summary, 'close': True})

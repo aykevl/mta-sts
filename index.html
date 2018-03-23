@@ -6,8 +6,8 @@
 		<meta charset="utf-8"/>
 		<meta name="viewport" content="width=device-width, initial-scale=1"/>
 		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-		<link rel="stylesheet" href="mta-sts.css?v=2"/>
-		<script src="mta-sts.js" src="mta-sts.js?v=2" defer></script>
+		<link rel="stylesheet" href="mta-sts.css?v=3"/>
+		<script src="mta-sts.js" src="mta-sts.js?v=3" defer></script>
 	</head>
 	<body>
 		<div class="container-fluid">
@@ -63,6 +63,36 @@ mx: backupmx.example.com</pre>
 			</div>
 			<div class="other-error">
 				<p class="alert alert-danger" role="alert">Unknown error in the server. May be a rate-limit.</p>
+			</div>
+			<div class="template-report">
+				<div class="report-mta-sts">
+					<h3 class="loading">
+						<div>MTA-STS TXT record</div>
+					</h3>
+					<div class="contents"></div>
+				</div>
+				<hr/>
+				<div class="report-tlsrpt">
+					<h3 class="loading">
+						<div>SMTP-TLSRPT TXT record</div>
+					</h3>
+					<div class="contents"></div>
+				</div>
+				<hr/>
+				<div class="report-policy">
+					<h3 class="loading">
+						<div>Policy file</div>
+					</h3>
+					<div class="contents"></div>
+				</div>
+				<hr/>
+				<div class="report-mx">
+					<h3 class="loading">
+						<div>Certificate check</div>
+					</h3>
+					<div class="contents"></div>
+				</div>
+				<hr/>
 			</div>
 		</div>
 	</body>
