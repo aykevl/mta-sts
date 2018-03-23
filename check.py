@@ -360,7 +360,7 @@ def checkMX(result, domain, policyNames=None):
                 context.options |= ssl.OP_NO_TLSv1_1
                 # we do our own hostname checking
                 context.check_hostname = False
-                conn = smtplib.SMTP(mx, port=25, timeout=60)
+                conn = smtplib.SMTP(mx, port=25, timeout=30)
                 conn.starttls(context=context)
                 cert = conn.sock.getpeercert()
 
@@ -375,6 +375,8 @@ def checkMX(result, domain, policyNames=None):
             data['error'] = '!timeout'
         except smtplib.SMTPException as e:
             data['error'] = e
+        except OSError as e:
+            data['error'] = e.strerror
         finally:
             # try to close the connection
             if conn is not None:
