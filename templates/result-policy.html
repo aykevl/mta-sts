@@ -1,8 +1,10 @@
 {% if report.policy.value %}
 <p>
 Policy: <a href="{{ report.policy.value.url }}">{{ report.policy.value.url }}</a>
-</p>
+{% if report.policy.value.data %}
 <pre class="ml-4">{{ report.policy.value.data }}</pre>
+{% endif %}
+</p>
 {% endif %}
 {% if not report.policy.valid %}
 <p><strong>Error</strong>:
