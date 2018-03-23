@@ -46,6 +46,8 @@ No <code>version</code> field was specified. It must be set to <code>STSv1</code
 Invalid <code>version</code> field: the value must be <code>STSv1</code>, not <code>{{ report.policy.errorValue }}</code>.
 {% elif report.policy.errorName == "no-mode" %}
 No <code>mode</code> field was specified. It must be set to <code>enforce</code>, <code>testing</code> or <code>none</code>.
+{% elif report.policy.errorName == "old-mode-report" %}
+Invalid <code>mode</code> field: the mode <code>report</code> has been renamed to <code>testing</code>.
 {% elif report.policy.errorName == "invalid-mode" %}
 Invalid <code>mode</code> field: the value must be set to <code>enforce</code>, <code>testing</code> or <code>none</code>, not <code>{{ report.policy.errorValue }}</code>.
 {% elif report.policy.errorName == "no-max-age" %}
