@@ -409,7 +409,7 @@ def isWildcardMatch(pat, host):
     if pat == host:
         return True
     if pat[0] == '.':
-        parts = host.split('.', 2)
+        parts = host.split('.', 1)
         if len(parts) > 1 and parts[1] == pat[1:]:
             return True
     return False
@@ -424,6 +424,7 @@ def certMatches(certNames, policyNames):
                 if san[1] != '.':
                     # Invalid wildcard!
                     continue
+                san = san[1:]
             if isWildcardMatch(san, mx) or isWildcardMatch(mx, san):
                 return True
     return False
