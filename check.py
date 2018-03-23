@@ -213,8 +213,8 @@ def checkPolicyFile(result, domain, policytype):
             return result.error('tls-error', e.reason)
     except ssl.CertificateError as e:
         return result.error('certificate-error', e)
-    except OSError:
-        return result.error('http-resolve-unknown', url)
+    except OSError as e:
+        return result.error('http-resolve-unknown', str(e))
     finally:
         conn.close()
 

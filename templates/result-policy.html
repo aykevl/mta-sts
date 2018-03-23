@@ -22,6 +22,8 @@ SSL error while connecting to the HTTPS server: <code>{{ report.policy.errorValu
 SSL error while connecting to the HTTPS server: the server does not support modern TLS protocols. TLS v1.2 or higher is required in MTA-STS.
 {% elif report.policy.errorName == "certificate-error" %}
 SSL certificate error while connecting to the HTTPS server: {{ report.policy.errorValue }}.
+{% elif report.policy.errorName == "http-resolve-unknown" %}
+Could not connect to the HTTPS server: <code>{{ report.policy.errorValue }}</code>.
 {% elif report.policy.errorName == "request" %}
 Failed to request the policy file from the HTTPS server.
 {% elif report.policy.errorName == "http-status" %}
