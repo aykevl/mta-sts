@@ -185,6 +185,8 @@ def checkPolicyFile(result, domain, policytype):
     try:
         # timeout of 60s suggested by the standard
         context = context = ssl.create_default_context()
+        context.options |= ssl.OP_NO_TLSv1
+        context.options |= ssl.OP_NO_TLSv1_1
         conn = http.client.HTTPSConnection(host, timeout=10, context=context)
     except (http.client.HTTPException, TimeoutError):
         return result.error('connect')
@@ -205,7 +207,10 @@ def checkPolicyFile(result, domain, policytype):
         else:
             return result.error('dns-error', host)
     except ssl.SSLError as e:
-        return result.error('ssl-error', e.reason)
+        if e.reason == 'NO_PROTOCOLS_AVAILABLE':
+            return result.error('tls-old-protocol')
+        else:
+            return result.error('tls-error', e.reason)
     except ssl.CertificateError as e:
         return result.error('certificate-error', e)
     except OSError:
@@ -279,7 +284,7 @@ def checkPolicyFile(result, domain, policytype):
         return result.error('invalid-version', info['version'])
     if 'mode' not in info:
         return result.error('no-mode')
-    if info['mode'] not in ['enforce', 'report', 'none']:
+    if info['mode'] not in ['enforce', 'testing', 'none']:
         return result.error('invalid-mode', info['mode'])
     if 'max_age' not in info:
         return result.error('no-max-age')
@@ -351,21 +356,19 @@ def checkMX(result, domain, policyNames=None):
             else:
                 # TODO test MX label validity
                 context = ssl.create_default_context()
+                context.options |= ssl.OP_NO_TLSv1
+                context.options |= ssl.OP_NO_TLSv1_1
                 # we do our own hostname checking
                 context.check_hostname = False
-                conn = smtplib.SMTP(mx, port=25, timeout=10)
+                conn = smtplib.SMTP(mx, port=25, timeout=60)
                 conn.starttls(context=context)
                 cert = conn.sock.getpeercert()
 
             # TODO check for expired certificate?
 
-            for rdn in cert.get('subject', ()):
-                if rdn[0][0] == 'commonName':
-                    names.add(rdn[0][1])
-            if 'subjectAltName' in cert:
-                for san in cert['subjectAltName']:
-                    if san[0] == 'DNS':
-                        names.add(san[1])
+            for san in cert.get('subjectAltName', ()):
+                if san[0] == 'DNS':
+                    names.add(san[1])
         except ssl.SSLError as e:
             data['error'] = e.reason
         except (TimeoutError, socket.timeout):
