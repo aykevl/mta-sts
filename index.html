@@ -2,7 +2,7 @@
 
 <html>
 	<head>
-		<title>Online MTA-STS testing tool</title>
+		<title>MTA-STS validator</title>
 		<meta charset="utf-8"/>
 		<meta name="viewport" content="width=device-width, initial-scale=1"/>
 		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
@@ -11,7 +11,7 @@
 	</head>
 	<body>
 		<div class="container-fluid">
-			<h1>Online MTA-STS testing tool</h1>
+			<h1>MTA-STS validator</h1>
 
 			<!-- pattern: https://stackoverflow.com/a/106223/559350 -->
 			<p>
@@ -31,7 +31,7 @@
 
 			<p><a href="https://datatracker.ietf.org/doc/draft-ietf-uta-mta-sts/">MTA-STS</a> is a new standard (<a href="https://github.com/mrisher/smtp-sts">still in development</a>) that makes it possible to send downgrade-resistant email over SMTP. In that sense, it is like an alternative to DANE. It does this by piggybacking on the browser Certificate Authority model.</p>
 
-			<p>Note: this testing tool is based on the <a href="https://github.com/mrisher/smtp-sts/blob/master/mta-sts.md">current draft specification</a> as of march 23, 2018. It is very likely some parts of it will change before the final publication. To see which changes haven't been included in this tool yet, see <a href="https://github.com/mrisher/smtp-sts/compare/8dbc6972bce1572311c64d4f50beed22dee95262...master">this diff</a>. The currently implemented specification is <a href="https://tools.ietf.org/html/draft-ietf-uta-mta-sts-14">MTA-STS draft 14</a> and <a href="https://tools.ietf.org/html/draft-ietf-uta-smtp-tlsrpt-17">SMTP-TLSRPT draft 17</a>.</p>
+			<p>Note: this validator is based on the <a href="https://github.com/mrisher/smtp-sts/blob/master/mta-sts.md">current draft specification</a> as of march 23, 2018. It is very likely some parts of it will change before the final publication. To see which changes haven't been included in this validator yet, see <a href="https://github.com/mrisher/smtp-sts/compare/8dbc6972bce1572311c64d4f50beed22dee95262...master">this diff</a>. The currently implemented specification is <a href="https://tools.ietf.org/html/draft-ietf-uta-mta-sts-14">MTA-STS draft 14</a> and <a href="https://tools.ietf.org/html/draft-ietf-uta-smtp-tlsrpt-17">SMTP-TLSRPT draft 17</a>.</p>
 
 			<p class="mb-0">To enable Strict Transport Security on your mailserver configure the following things:</p>
 
@@ -48,7 +48,7 @@ mx: mail.example.com
 mx: .example.net
 mx: backupmx.example.com</pre>
 				</li>
-				<li>Test this mail domain using this or another tool.</li>
+				<li>Test this mail domain using this or another validator.</li>
 			</ul>
 
 			<p>Created by: <a href="https://aykevl.nl/" rel="author">Ayke</a> (<a href="https://github.com/aykevl/mta-sts">source code</a>). If you encounter any errors, you can create a <a href="https://github.com/aykevl/mta-sts/issues/new">bug report</a> or alternatively <a href="https://aykevl.nl/about">send me a personal message</a>.
