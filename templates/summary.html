@@ -1,12 +1,34 @@
+<h2>Summary</h2>
 <p>Result for: <strong>{{ report.domain }}</strong></p>
 
-{% if report.rating >= 3 %}
-<p class="alert alert-success" role="alert">Everything is okay!</p>
-{% elif report.rating >= 2 %}
-<p class="alert alert-warning" role="alert">Looks okay, but there are warnings.</p>
-{% else %}
-<p class="alert alert-danger" role="alert"><strong>Error</strong>: some tests failed, see below.</p>
-{% endif %}{# report.rating #}
+<dl>
+	<dt class="{{ report.verdictSTS }}">MTA-STS </dt>
+	<dd>
+	{% if report.ratingSTS <= 1 %}
+	<strong>Error</strong>: make sure the MTA-STS DNS record, the policy file and the MX servers are all set up correctly.
+	{% elif report.ratingSTS <= 3 %}
+	<strong>Warning</strong>: make sure the MTA-STS DNS record, the policy file and the MX servers are all set up correctly.
+	{% elif report.ratingSTS <= 4 %}
+	Everything is set up correctly!
+	{% elif report.ratingSTS <= 5 %}
+	<strong>Note</strong>: MTA-STS has been disabled, but is otherwise set up correctly. Set mode to <code>enforce</code> to enable it.
+	{% endif %}{# report.ratingSTS #}
+	</dd>
+	<dt class="{{ report.verdictTLSRPT }}">SMTP-TLSRPT </dt>
+	<dd>
+	{% if report.ratingTLSRPT <= 1 %}
+	<strong>Error</strong>: make sure the SMTP-TLSRPT DNS record and the policy file are set up correctly.
+	{% elif report.ratingTLSRPT <= 3 %}
+	<strong>Warning</strong>: make sure the SMTP-TLSRPT DNS record and the policy file are set up correctly.
+	{% elif report.ratingTLSRPT <= 4 %}
+	Everything is set up correctly! You should receive reports on
+	{% for addr in report.tlsrpt.value.addresses %}<a href="{{ addr }}">{% if addr.startswith('mailto:') %}{{ addr[7:] }}{% else %}{{ addr }}{% endif %}</a>{% if loop.revindex == 2 %} and {% elif loop.last %}{% else %}, {% endif %}{% endfor %},
+	as soon as mail senders start sending them.
+	{% elif report.ratingTLSRPT <= 5 %}
+	<strong>Note</strong>: SMTP-TLSRPT has been disabled, but is otherwise set up correctly. Set mode to <code>testing</code> or <code>enforce</code> to enable it.
+	{% endif %}{# report.ratingTLSRPT #}
+	</dd>
+</dl>
 
 {% if report.rating >= 3 %}
 <p class="alert alert-info" role="alert"><strong>Note</strong>: even though the server appears to be set up correctly for MTA-STS, I recommend using a test like <a href="https://www.ssllabs.com/ssltest/analyze.html?d={{ report.domain }}&latest">Qualys SSL Labs</a> to analyze the HTTP host and to <a href="https://en.internet.nl/mail/{{ report.domain }}/">test the mail host</a>.</p>

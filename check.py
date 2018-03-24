@@ -25,11 +25,13 @@ mxDomainPattern = re.compile('^\.?(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z
 # 2: warning
 # 3: rooom for improvement
 # 4: ok
+# 5: disabled (but OK)
 VERDICT_MAP = {
     None: None,
     1: 'fail',
     2: 'warn',
     4: 'ok',
+    5: 'off',
 }
 
 class Result:
@@ -105,6 +107,35 @@ class Report:
         if self.errorName is not None:
             return 1 # error
         return min(self.sts.rating, self.tlsrpt.rating, self.policy.rating, self.mx.rating)
+
+    @property
+    def ratingSTS(self):
+        if self.errorName is not None:
+            rating = 1 # error
+        else:
+            rating = min(self.sts.rating, self.policy.rating, self.mx.rating)
+
+        if rating == 4 and 'info' in self.policy.value and self.policy.value['info'].get('mode') != 'enforce':
+            rating = 5 # MTA-STS is not enabled
+        return rating
+
+    @property
+    def verdictSTS(self):
+        return VERDICT_MAP[self.ratingSTS]
+
+    @property
+    def ratingTLSRPT(self):
+        if self.errorName is not None:
+            rating = 1 # error
+        elif 'info' in self.policy.value and self.policy.value['info'].get('mode') not in {'enforce', 'testing'}:
+            rating = 5 # TLSRPT is not enabled
+        else:
+            rating = 4
+        return min(rating, self.sts.rating, self.policy.rating)
+
+    @property
+    def verdictTLSRPT(self):
+        return VERDICT_MAP[self.ratingTLSRPT]
 
 def retrieveTXTRecord(result, domain, prefix, magic):
     fullDomain = prefix + '.' + domain
@@ -183,7 +214,9 @@ def checkDNS_TLSRPT(result, domain):
     if dnsPolicy is None:
         # an error was returned
         return
-    result.value = dnsPolicy
+    result.value = {
+        'raw': dnsPolicy,
+    }
 
     fields = re.split('[ \t]*;[ \t]*', dnsPolicy) # split at field-delim
 
@@ -200,13 +233,17 @@ def checkDNS_TLSRPT(result, domain):
     if '!' in ruafield:
         return result.error('invalid-rua', ruafield)
     rua = ruafield[4:]
+
+    addresses = []
     try:
         for part in re.split('[ \t]*,[ \t]*', rua):
             url = urllib.parse.urlparse(part)
             if url.scheme not in ['mailto', 'https']:
                 return result.error('invalid-rua', ruafield)
+            addresses.append(part)
     except ValueError:
         return result.error('invalid-rua', ruafield)
+    result.value['addresses'] = addresses
 
 
 def checkExtensionFields(fields, result):
@@ -336,8 +373,8 @@ def checkPolicyFile(result, domain):
     except ValueError:
         return result.error('invalid-max-age', info['max_age'])
     if max_age < 86400: # 1 day
-        return result.error('short-max-age', max_age)
-    if max_age < 2592000: # 30 days
+        return result.error('short-max-age', max_age/86400)
+    if max_age < 2592000 and info.get('mode', 'testing') != 'testing': # 30 days
         result.warn('short-max-age', max_age/86400)
     if max_age > 31557600:
         result.warn('long-max-age', max_age/86400)

@@ -29,6 +29,7 @@
 			<div id="report">
 			</div>
 
+			<h2>Background</h2>
 			<p><a href="https://datatracker.ietf.org/doc/draft-ietf-uta-mta-sts/">MTA-STS</a> is a new standard (<a href="https://github.com/mrisher/smtp-sts">still in development</a>) that makes it possible to send downgrade-resistant email over SMTP. In that sense, it is like an alternative to DANE. It does this by piggybacking on the browser Certificate Authority model.</p>
 
 			<p>Note: this validator is based on the <a href="https://github.com/mrisher/smtp-sts/blob/master/mta-sts.md">current draft specification</a> as of march 23, 2018. It is very likely some parts of it will change before the final publication. To see which changes haven't been included in this validator yet, see <a href="https://github.com/mrisher/smtp-sts/compare/8dbc6972bce1572311c64d4f50beed22dee95262...master">this diff</a>. The currently implemented specification is <a href="https://tools.ietf.org/html/draft-ietf-uta-mta-sts-14">MTA-STS draft 14</a> and <a href="https://tools.ietf.org/html/draft-ietf-uta-smtp-tlsrpt-17">SMTP-TLSRPT draft 17</a>.</p>
@@ -56,7 +57,8 @@ mx: backupmx.example.com</pre>
 
 		<div id="templates">
 			<div class="loading">
-				<p class="alert alert-info" role="alert">Loading...</p>
+				<h2>Summary</h2>
+				<p>Loading...</p>
 			</div>
 			<div class="rate-limit">
 				<p class="alert alert-danger" role="alert">Rate limited!</p>
@@ -65,34 +67,31 @@ mx: backupmx.example.com</pre>
 				<p class="alert alert-danger" role="alert">Unknown error in the server. May be a rate-limit.</p>
 			</div>
 			<div class="template-report">
+				<h2>Details</h2>
 				<div class="report-mta-sts">
 					<h3 class="loading">
 						<div>MTA-STS TXT record</div>
 					</h3>
 					<div class="contents"></div>
 				</div>
-				<hr/>
 				<div class="report-tlsrpt">
 					<h3 class="loading">
 						<div>SMTP-TLSRPT TXT record</div>
 					</h3>
 					<div class="contents"></div>
 				</div>
-				<hr/>
 				<div class="report-policy">
 					<h3 class="loading">
 						<div>Policy file</div>
 					</h3>
 					<div class="contents"></div>
 				</div>
-				<hr/>
 				<div class="report-mx">
 					<h3 class="loading">
 						<div>Certificate check</div>
 					</h3>
 					<div class="contents"></div>
 				</div>
-				<hr/>
 			</div>
 		</div>
 	</body>
