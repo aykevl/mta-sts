@@ -1,10 +1,14 @@
 <p>Result for: <strong>{{ report.domain }}</strong></p>
-{% if report.valid %}
-{% if report.hasWarnings %}
-<p class="alert alert-warning" role="alert">Looks okay, but there are warnings.</p>
-{% else %}{# valid, no warnings #}
+
+{% if report.rating >= 3 %}
 <p class="alert alert-success" role="alert">Everything is okay!</p>
-{% endif %}{# warnings? #}
+{% elif report.rating >= 2 %}
+<p class="alert alert-warning" role="alert">Looks okay, but there are warnings.</p>
+{% else %}
+<p class="alert alert-danger" role="alert"><strong>Error</strong>: some tests failed, see below.</p>
+{% endif %}{# report.rating #}
+
+{% if report.rating >= 3 %}
 <p class="alert alert-info" role="alert"><strong>Note</strong>: even though the server appears to be set up correctly for MTA-STS, I recommend using a test like <a href="https://www.ssllabs.com/ssltest/analyze.html?d={{ report.domain }}&latest">Qualys SSL Labs</a> to analyze the HTTP host and to <a href="https://en.internet.nl/mail/{{ report.domain }}/">test the mail host</a>.</p>
 {% elif report.errorName %}{# global error #}
 <p class="alert alert-danger" role="alert">
@@ -15,6 +19,4 @@
 	Unknown: {{ report.errorName }}.
 	{% endif %}
 </p>
-{% else %}{# specific error(s) #}
-<p class="alert alert-danger" role="alert"><strong>Error</strong>: some tests failed, see below.</p>
-{% endif %}{# valid? #}
+{% endif %}

@@ -20,22 +20,44 @@ import re
 domainPattern   = re.compile(   '^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$')
 mxDomainPattern = re.compile('^\.?(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$')
 
+# Ratings:
+# 1: error
+# 2: warning
+# 3: rooom for improvement
+# 4: ok
+VERDICT_MAP = {
+    None: None,
+    1: 'fail',
+    2: 'warn',
+    4: 'ok',
+}
+
 class Result:
     def __init__(self):
         self.warnings = []
         self.errorName = None
         self.errorValue = None
         self.value = None
-        self.valid = True
 
     def error(self, message, value=None):
         ''' Error for this specific result '''
-        self.valid = False
+        if self.errorName is not None:
+            raise ValueError('Result.error: error has already been set')
         self.errorName = message
         self.errorValue = value
 
     def warn(self, message, value=None):
         self.warnings.append({'message': message, 'value': value})
+
+    @property
+    def rating(self):
+        if self.errorName is not None:
+            return 1 # error
+        if self.warnings:
+            return 2 # warning
+        # TODO: room for improvement
+        return 4
+
 
 class Report:
     def __init__(self, domain):
@@ -54,12 +76,10 @@ class Report:
         return self
 
     @property
-    def valid(self):
-        return self.errorName is None and self.sts.valid and self.tlsrpt.valid and self.policy.valid and self.mx.valid
-
-    @property
-    def hasWarnings(self):
-        return self.sts.warnings or self.tlsrpt.warnings or self.policy.warnings or self.mx.warnings
+    def rating(self):
+        if self.errorName is not None:
+            return 1 # error
+        return min(self.sts.rating, self.tlsrpt.rating, self.policy.rating, self.mx.rating)
 
 def retrieveTXTRecord(result, domain, prefix, magic):
     fullDomain = prefix + '.' + domain
@@ -389,7 +409,7 @@ def checkMailserver(result, mx, preference, policyNames):
             data['valid'] = False
 
     if not data.get('valid'):
-        result.valid = False
+        result.error('mx-fail')
     return data
 
 # algorithm from Appendix 2 of the draft (function isWildcardMatch and
@@ -426,13 +446,13 @@ def renderSummary(report):
         summary = flask.render_template('summary.html', report=report)
     return makeEventSource({'summary': summary, 'close': True})
 
-def renderSubReport(report, reportName, valid):
+def renderSubReport(report, reportName, rating):
     with app.app_context():
         html = flask.render_template('result-%s.html' % reportName, report=report)
     return makeEventSource({
         'reportName': reportName,
         'html':       html,
-        'verdict':    {True: 'ok', False: 'fail', None: None}[valid]})
+        'verdict':    VERDICT_MAP[rating]})
 
 def makeReport(domain):
     report = Report(domain)
@@ -444,16 +464,16 @@ def makeReport(domain):
         return
 
     checkDNS_STS(report.sts, domain)
-    yield renderSubReport(report, 'mta-sts', report.sts.valid)
+    yield renderSubReport(report, 'mta-sts', report.sts.rating)
 
     checkDNS_TLSRPT(report.tlsrpt, domain)
-    yield renderSubReport(report, 'tlsrpt', report.tlsrpt.valid)
+    yield renderSubReport(report, 'tlsrpt', report.tlsrpt.rating)
 
     checkPolicyFile(report.policy, domain)
-    yield renderSubReport(report, 'policy', report.policy.valid)
+    yield renderSubReport(report, 'policy', report.policy.rating)
 
     mailservers = getMX(report.mx, domain)
-    if report.mx.valid:
+    if mailservers is not None:
         report.mx.value = []
 
         policyNames = report.policy.value.get('info', {}).get('mx', None)
@@ -467,9 +487,9 @@ def makeReport(domain):
                 'part':       html})
         yield makeEventSource({
             'reportName': 'mx',
-            'verdict': {True: 'ok', False: 'fail', None: None}[report.mx.valid]})
+            'verdict': VERDICT_MAP[report.mx.rating]})
     else:
-        yield renderSubReport(report, 'mx', report.mx.valid)
+        yield renderSubReport(report, 'mx', report.mx.rating)
 
     yield renderSummary(report)
 

@@ -34,6 +34,11 @@ dd {
 	content: '✔';
 	color: green;
 }
+#report h3.warn:before {
+	content: '⚠';
+	color: orange;
+	font-weight: bold;
+}
 #report h3.fail:before {
 	content: '✖';
 	color: red;

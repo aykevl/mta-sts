@@ -6,7 +6,7 @@ Policy: <a href="{{ report.policy.value.url }}">{{ report.policy.value.url }}</a
 {% endif %}
 </p>
 {% endif %}
-{% if not report.policy.valid %}
+{% if report.policy.errorName %}
 <p><strong>Error</strong>:
 {% if report.policy.errorName == "not-found" %}
 Policy file not found.
@@ -62,7 +62,7 @@ Invalid <code>mx</code> entry: <code>{{ report.policy.errorValue }}</code>. It m
 Unknown error: {{ report.policy.errorName }}.
 {% endif %}{# report.policy.errorName #}
 </p>
-{% endif %}{# report.policy.valid #}
+{% endif %}{# report.policy.errorName exists? #}
 
 {% if report.policy.warnings %}
 <p><strong>Warnings</strong>:</p>

@@ -7,7 +7,7 @@
 	{% endif %}
 </p>
 <p>
-{% if not report.tlsrpt.valid %}
+{% if report.tlsrpt.errorName %}
 <strong>Error</strong>:
 {% if report.tlsrpt.errorName == "invalid-domain" %}
 Cannot resolve DNS: invalid syntax for domain <code>{{ report.tlsrpt.errorValue }}</code>.
@@ -38,7 +38,7 @@ Invalid version prefix. Must be <code>v=TLSRPTv1</code>, not <code>{{ report.tls
 {% elif report.tlsrpt.errorName == "invalid-rua" %}
 Invalid "rua" field <code>{{ report.tlsrpt.errorValue }}</code>. It must either be an URL or an email address prefixed by <code>mailto:</code>. For example, <code>rua=https://reporting.example.com/v1/tlsrpt</code> or <code>rua=mailto:reports@example.com</code>. Additionally, it must not contain raw commas or exclamation points, these have to be encoded.
 {% endif %}{# report.tlsrpt.errorName #}
-{% endif %}{# report.tlsrpt.valid #}
+{% endif %}{# report.tlsrpt.errorName exists? #}
 
 {% if report.tlsrpt.warnings %}
 <p><strong>Warnings</strong>:</p>

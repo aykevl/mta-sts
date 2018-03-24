@@ -6,8 +6,9 @@
 		none
 	{% endif %}
 </p>
+
 <p>
-{% if not report.sts.valid %}
+{% if report.sts.errorName %}
 <strong>Error</strong>:
 {% if report.sts.errorName == "invalid-domain" %}
 Cannot resolve DNS: invalid syntax for domain <code>{{ report.sts.errorValue }}</code>.
@@ -42,7 +43,7 @@ There is an extra field <code>{{ report.sts.errorValue }}</code> which is invali
 {% else %}
 Unknown error: {{ report.sts.errorName }}
 {% endif %}{# report.sts.errorName #}
-{% endif %}{# report.sts.valid #}
+{% endif %}{# report.sts.errorName exists? #}
 
 {% if report.sts.warnings %}
 <p><strong>Warnings</strong>:</p>
