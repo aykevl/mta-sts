@@ -12,16 +12,13 @@ dd {
 	margin-left: 1.5rem;
 }
 
-.icon-check {
+#report dt.ok:after {
+	content: '✔';
 	color: green;
 }
-
-.icon-no {
+#report dt.fail:after {
+	content: '✖';
 	color: red;
-}
-
-.icon-big {
-	font-size: 48px;
 }
 
 #report h3:before,

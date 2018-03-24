@@ -33,6 +33,9 @@ VERDICT_MAP = {
 }
 
 class Result:
+    '''
+    Result of a single test.
+    '''
     def __init__(self):
         self.warnings = []
         self.errorName = None
@@ -58,8 +61,30 @@ class Result:
         # TODO: room for improvement
         return 4
 
+class MailserverResult:
+    '''
+    Result of a single MX server (part of the mx test)
+    '''
+    def __init__(self, name, preference, policyNames):
+        self.name = name
+        self.preference = preference
+        self.policyNames = policyNames
+        self.certNames = None
+
+    @property
+    def valid(self):
+        if self.policyNames is None or self.certNames is None:
+            return False
+        return certMatches(self.certNames, self.policyNames)
+
+    @property
+    def verdict(self):
+        return {True: 'ok', False: 'fail'}[self.valid]
 
 class Report:
+    '''
+    Whole result, of all tests together.
+    '''
     def __init__(self, domain):
         self.domain = domain
         self.sts = Result()
@@ -349,7 +374,7 @@ def getMX(result, domain):
     return sorted(mxs.items(), key=mxsortkey)
 
 def checkMailserver(result, mx, preference, policyNames):
-    data = {'mx': mx, 'preference': preference}
+    data = MailserverResult(mx, preference, policyNames)
     result.value.append(data)
 
     conn = None
@@ -358,9 +383,9 @@ def checkMailserver(result, mx, preference, policyNames):
     try:
         cert = {}
         if not domainPattern.match(mx):
-            data['error'] = '!invalid-mx'
+            data.error = '!invalid-mx'
         elif len(result.value) > 5:
-            data['error'] = '!skip'
+            data.error = '!skip'
         else:
             # TODO test MX label validity
             context = ssl.create_default_context()
@@ -378,37 +403,29 @@ def checkMailserver(result, mx, preference, policyNames):
             if san[0] == 'DNS':
                 names.add(san[1])
     except ssl.SSLError as e:
-        data['error'] = e.reason
+        data.error = e.reason
     except (TimeoutError, socket.timeout):
-        data['error'] = '!timeout'
+        data.error = '!timeout'
     except smtplib.SMTPException as e:
-        data['error'] = e
+        data.error = e
     except OSError as e:
-        data['error'] = e.strerror
+        data.error = e.strerror
     finally:
         # try to close the connection
         if conn is not None:
             conn.close()
 
-    if cert is not None and not names and not data.get('error'):
+    if cert is not None and not names and not data.error:
         # does this actually happen?
-        data['error'] = '!unknown'
+        data.error = '!unknown'
 
-    names = list(names)
     def domainsortkey(n):
         n = n.split('.')
         n.reverse()
         return n
-    names.sort(key=domainsortkey)
-    data['certnames'] = names
+    data.certNames = sorted(names, key=domainsortkey)
 
-    if policyNames is not None:
-        if certMatches(names, policyNames):
-            data['valid'] = True
-        else:
-            data['valid'] = False
-
-    if not data.get('valid'):
+    if not data.valid:
         result.error('mx-fail')
     return data
 

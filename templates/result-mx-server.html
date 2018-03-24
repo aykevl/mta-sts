@@ -1,9 +1,6 @@
-<dt>
-	{{ mx.mx }}
+<dt class="{{ mx.verdict }}">
+	{{ mx.name }}
 	<span class="font-weight-normal">({{ mx.preference }})</span>
-	{% if mx.valid %}<span class="icon-check">✔</span>
-	{% else %}<span class="icon-no">✖</span>
-	{% endif %}
 </dt>
 <dd>
 	{% if mx.error %}
@@ -23,7 +20,7 @@
 	{% endif %}
 	<br/>
 	{% endif %}
-	{% for name in mx.certnames %}
+	{% for name in mx.certNames %}
 	<code class="text-nowrap">{{ name }}</code>
 	{% endfor %}
 </dd>
