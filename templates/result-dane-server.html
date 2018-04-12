@@ -25,7 +25,7 @@
 {% else %}
 <div>No TLSA records present.</div>
 {% endif %}
-{% if mx.daneVerdict != "ok" and mx.dane_hash_spki %}
+{% if mx.daneVerdict == "fail" and mx.dane_hash_spki %}
 <div>
 	Example TLSA record you can use:
 	<pre>3 1 1 {{ mx.dane_hash_spki }}</pre>
