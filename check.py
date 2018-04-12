@@ -137,6 +137,12 @@ class MailserverResult:
             #   implementations are required to support SHA2-256, this record type
             #   works for all clients and need not change across certificate renewals
             #   with the same key.
+            #
+            # From https://tools.ietf.org/html/rfc7672#section-3.1.3:
+            #
+            #   SMTP client treatment of TLSA RRs with certificate usages PKIX-TA(0)
+            #   or PKIX-EE(1) is undefined.  As with any other unsupported
+            #   certificate usage, SMTP clients MAY treat such records as "unusable".
 
             # In other words, the types supported by DANE are 3 x 1 and 2 x 1.
 
