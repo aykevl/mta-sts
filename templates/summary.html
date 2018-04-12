@@ -5,11 +5,11 @@
 	<dt class="{{ report.verdictSTS }}">MTA-STS </dt>
 	<dd>
 	{% if report.ratingSTS <= 1 %}
-	<strong>Error</strong>: make sure the MTA-STS DNS record, the policy file and the MX servers are all set up correctly.
+	<strong>Error</strong>: make sure the MTA-STS DNS record, the policy file and the mail servers are all set up correctly.
 	{% elif report.ratingSTS <= 3 %}
-	<strong>Warning</strong>: make sure the MTA-STS DNS record, the policy file and the MX servers are all set up correctly.
+	<strong>Warning</strong>: make sure the MTA-STS DNS record, the policy file and the mail servers are all set up correctly.
 	{% elif report.ratingSTS <= 4 %}
-	Everything is set up correctly!
+	Everything is set up correctly! Sending mail servers will not fall back to plaintext for {{ report.policy.value.info.max_age|int // 86400 }} days after they have discovered the policy.
 	{% elif report.ratingSTS <= 5 %}
 	<strong>Note</strong>: MTA-STS has been disabled, but is otherwise set up correctly. Set mode to <code>enforce</code> to enable it.
 	{% endif %}{# report.ratingSTS #}
@@ -17,9 +17,9 @@
 	<dt class="{{ report.verdictTLSRPT }}">SMTP-TLSRPT </dt>
 	<dd>
 	{% if report.ratingTLSRPT <= 1 %}
-	<strong>Error</strong>: make sure the SMTP-TLSRPT DNS record and the policy file are set up correctly.
+	<strong>Error</strong>: make sure the SMTP-TLSRPT DNS record is set up correctly.
 	{% elif report.ratingTLSRPT <= 3 %}
-	<strong>Warning</strong>: make sure the SMTP-TLSRPT DNS record and the policy file are set up correctly.
+	<strong>Warning</strong>: make sure the SMTP-TLSRPT DNS record is set up correctly.
 	{% elif report.ratingTLSRPT <= 4 %}
 	Everything is set up correctly! You should receive reports on
 	{% for addr in report.tlsrpt.value.addresses %}<a href="{{ addr }}">{% if addr.startswith('mailto:') %}{{ addr[7:] }}{% else %}{{ addr }}{% endif %}</a>{% if loop.revindex == 2 %} and {% elif loop.last %}{% else %}, {% endif %}{% endfor %},

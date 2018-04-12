@@ -4,7 +4,7 @@ body > .container-fluid {
 }
 
 h2 {
-	font-size: 1.75rem;
+	font-size: 2rem;
 	margin-top: 1.6rem;
 }
 h3 {
@@ -32,6 +32,10 @@ dt.warn:after {
 dt.fail:after {
 	content: '✖';
 	color: red;
+}
+dt.none:after {
+	content: '?';
+	color: gray;
 }
 dt.off:after {
 	content: '➖';
@@ -63,6 +67,10 @@ dt.off:after {
 	color: gray;
 	animation: spin 4s linear infinite;
 }
+#report h3.none:before {
+	content: '?';
+	color: gray;
+}
 #report h3:after {
 	content: "";
 	display: block;
@@ -70,8 +78,8 @@ dt.off:after {
 }
 #report h3 div,
 #report h3 div {
-	margin-left: 1.75rem;
-	line-height: 1.75rem;
+	margin-left: 2rem;
+	line-height: 2rem;
 }
 
 @keyframes spin {

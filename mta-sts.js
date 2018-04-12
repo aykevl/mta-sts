@@ -87,7 +87,7 @@ function onmessage(message) {
   if (message.reportName) {
     var div = report.querySelector('.report-' + message.reportName);
     if (message.part) {
-      div.querySelector('.contents .parts').innerHTML += message.part;
+      div.querySelector('.parts').innerHTML += message.part;
     } else if (message.html) {
       div.querySelector('.contents').innerHTML = message.html;
     }

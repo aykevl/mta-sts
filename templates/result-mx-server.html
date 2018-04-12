@@ -1,26 +1,30 @@
-<dt class="{{ mx.verdict }}">
-	{{ mx.name }}
-	<span class="font-weight-normal">({{ mx.preference }})</span>
+<dt class="{{ server.verdict }}">
+	{{ server.name }}
+	<span class="font-weight-normal">({{ server.preference }})</span>
 </dt>
 <dd>
-	{% if mx.error %}
+	{% if server.error %}
 	<strong>Error</strong>:
-	{% if mx.error == "!invalid-mx" %}
+	{% if server.error == "!invalid-mx" %}
 	Invalid MX.
-	{% elif mx.error == "!timeout" %}
+	{% elif server.error == "!timeout" %}
 	Timeout while connecting to the mail server.
-	{% elif mx.error == "!skip" %}
+	{% elif server.error == "!skip" %}
 	Skipping this MX: already processed too much.
-	{% elif mx.error == "!unknown" %}
+	{% elif server.error == "!unknown" %}
 	Unknown.
-	{% elif mx.error == "NO_PROTOCOLS_AVAILABLE" %}
+	{% elif server.error == "NO_PROTOCOLS_AVAILABLE" %}
 	This SMTP server does not support modern TLS protocols. Client support for TLS v1.2 or higher is required in MTA-STS.
 	{% else %}
-	<code>{{ mx.error }}</code>
-	{% endif %}
+	<code>{{ server.error }}</code>
+	{% endif %}{# server.error switch #}
 	<br/>
-	{% endif %}
-	{% for name in mx.certNames %}
+	{% endif %}{# server.error #}
+
+	{% if server.certNames %}
+	{% for name in server.certNames %}
 	<code class="text-nowrap">{{ name }}</code>
 	{% endfor %}
+	</p>
+	{% endif %}
 </dd>

@@ -9,16 +9,27 @@ import json
 import smtplib
 import ssl
 import socket
+import re
+import hashlib
+
 import flask # Debian: python3-flask
 from flask_limiter import Limiter # pip3: Flask-Limiter
 from flask_limiter.util import get_remote_address
-import re
+
+from cryptography.hazmat.primitives import serialization # Debian: python3-cryptography
+from cryptography.x509 import load_der_x509_certificate
+from cryptography.hazmat.backends import default_backend
 
 # See e.g. this page how to deploy:
 # http://flask.pocoo.org/docs/0.12/deploying/uwsgi/
 
 domainPattern   = re.compile(   '^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$')
 mxDomainPattern = re.compile('^\.?(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$')
+
+# Set up DNS resolver that requests validation
+resolver = dns.resolver.Resolver()
+resolver.edns = 0
+resolver.ednsflags = dns.flags.DO
 
 # Ratings:
 # 1: error
@@ -28,10 +39,10 @@ mxDomainPattern = re.compile('^\.?(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z
 # 5: disabled (but OK)
 VERDICT_MAP = {
     None: None,
-    1: 'fail',
-    2: 'warn',
-    4: 'ok',
-    5: 'off',
+    1:    'fail',
+    2:    'warn',
+    4:    'ok',
+    5:    'off',
 }
 
 class Result:
@@ -46,7 +57,7 @@ class Result:
 
     def error(self, message, value=None):
         ''' Error for this specific result '''
-        if self.errorName is not None:
+        if self.errorName is not None and (self.errorName != message or self.errorValue != value):
             raise ValueError('Result.error: error has already been set')
         self.errorName = message
         self.errorValue = value
@@ -72,6 +83,12 @@ class MailserverResult:
         self.preference = preference
         self.policyNames = policyNames
         self.certNames = None
+        self.dnssec_a = None
+        self.dnssec_tlsa = None
+        self.tlsa_records = []
+        self.error = None
+        self.dane_hash_cert = None
+        self.dane_hash_spki = None
 
     @property
     def valid(self):
@@ -82,6 +99,83 @@ class MailserverResult:
     @property
     def verdict(self):
         return {True: 'ok', False: 'fail'}[self.valid]
+
+    @property
+    def daneVerdict(self):
+        if not self.dnssec or not len(self.tlsa_records):
+            return 'fail'
+        return {
+            'ok':          'ok',
+            'fail':        'fail',
+            'unusable':    'fail',
+            'unsupported': 'none',
+        }[self.tlsa_state]
+
+    @property
+    def dnssec(self):
+        return self.dnssec_a and self.dnssec_tlsa
+
+    @property
+    def tlsa_state(self):
+        has_unsupported = False
+        has_unusable = False # has record that is not "3 1 1" or "2 1 1"
+        is_valid = False
+        for record in self.tlsa_records:
+            # From https://tools.ietf.org/html/rfc7672#section-3.1:
+            #
+            #   In summary, we RECOMMEND the use of "DANE-EE(3) SPKI(1) SHA2-256(1)",
+            #   with "DANE-TA(2) Cert(0) SHA2-256(1)" TLSA records as a second
+            #   choice, depending on site needs.  See Sections 3.1.1 and 3.1.2 for
+            #   more details.  Other combinations of TLSA parameters either (1) are
+            #   explicitly unsupported or (2) offer little to recommend them over
+            #   these two.
+            #
+            # From https://tools.ietf.org/html/rfc7672#section-3.1.1:
+            #
+            #   TLSA records published for SMTP servers SHOULD, in most cases, be
+            #   "DANE-EE(3) SPKI(1) SHA2-256(1)" records.  Since all DANE
+            #   implementations are required to support SHA2-256, this record type
+            #   works for all clients and need not change across certificate renewals
+            #   with the same key.
+
+            # In other words, the types supported by DANE are 3 x 1 and 2 x 1.
+
+            if record.selector not in (0, 1):
+                has_unusable = True
+                continue
+
+            if record.mtype != 1:
+                has_unusable = True
+                continue
+
+            if record.usage not in (2, 3):
+                has_invalid = True
+                continue
+            if record.usage == 2:
+                has_unsupported = True
+                # TODO: verify hostname and chain
+                continue
+
+            # record type is "3 x 1"
+
+            if record.selector == 0 and record.cert.hex() == self.dane_hash_cert:
+                is_valid = True
+            elif record.selector == 1 and record.cert.hex() == self.dane_hash_spki:
+                # TODO UNTESTED
+                is_valid = True
+
+        if is_valid:
+            # At least one record validates.
+            return 'ok'
+        elif has_unsupported:
+            # Has a "2 1 1" TLSA record which hasn't been implemented.
+            return 'unsupported'
+        elif has_unusable:
+            # Has at least one unusable TLSA record, and validation failed.
+            return 'unusable'
+        else:
+            # Could not validate.
+            return 'fail'
 
 class Report:
     '''
@@ -131,16 +225,27 @@ class Report:
             rating = 5 # TLSRPT is not enabled
         else:
             rating = 4
-        return min(rating, self.sts.rating, self.policy.rating)
+        return min(rating, self.sts.rating)
 
     @property
     def verdictTLSRPT(self):
         return VERDICT_MAP[self.ratingTLSRPT]
 
+    @property
+    def verdictDANE(self):
+        daneVerdicts = set()
+        for server in self.mx.value['servers']:
+            daneVerdicts.add(server.daneVerdict)
+        if 'none' in daneVerdicts:
+            return 'none'
+        if 'ok' in daneVerdicts:
+            return 'ok'
+        return 'fail'
+
 def retrieveTXTRecord(result, domain, prefix, magic):
     fullDomain = prefix + '.' + domain
     try:
-        answers = dns.resolver.query(fullDomain, 'TXT')
+        answers = resolver.query(fullDomain, 'TXT')
     except dns.resolver.NXDOMAIN:
         return result.error('no-domain', fullDomain)
     except dns.resolver.NoAnswer:
@@ -161,10 +266,7 @@ def retrieveTXTRecord(result, domain, prefix, magic):
             # This is actually possible, though I don't know whether it is
             # allowed.
             continue
-        if isinstance(record.strings[0], bytes):
-            data = b''.join(record.strings).decode('ascii')
-        else:
-            data = ''.join(record.strings)
+        data = b''.join(record.strings).decode('ascii')
         if data.startswith(magic):
             dnsPolicies.append(data)
         else:
@@ -394,9 +496,11 @@ def checkPolicyFile(result, domain):
 
 def getMX(result, domain):
     try:
-        answers = dns.resolver.query(domain, 'MX')
+        answers = resolver.query(domain, 'MX')
     except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.Timeout):
         return result.error('dns-error', domain)
+
+    result.value['dnssec'] = bool(answers.response.flags & dns.flags.AD)
 
     mxs = {}
     for record in answers:
@@ -412,33 +516,68 @@ def getMX(result, domain):
 
 def checkMailserver(result, mx, preference, policyNames):
     data = MailserverResult(mx, preference, policyNames)
-    result.value.append(data)
+
+    if not domainPattern.match(mx):
+        data.error = '!invalid-mx'
+    elif len(result.value['servers']) > 5:
+        data.error = '!skip'
+    if data.error:
+        result.error('mx-fail')
+        return data
+
+    try:
+        tlsarrs = resolver.query('_25._tcp.' + mx, 'TLSA')
+        data.dnssec_tlsa  = bool(tlsarrs.response.flags & dns.flags.AD)
+        for rr in tlsarrs:
+            if not isinstance(rr, dns.rdtypes.ANY.TLSA.TLSA):
+                continue
+            data.tlsa_records.append(rr)
+    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.Timeout):
+        pass
 
     conn = None
-    names = set()
     cert = None
     try:
+
+        answers = resolver.query(mx, 'A')
+        # TODO: IPv6
+        # TODO: try all other IP addresses returned
+        data.dnssec_a = bool(answers.response.flags & dns.flags.AD)
+
         cert = {}
-        if not domainPattern.match(mx):
-            data.error = '!invalid-mx'
-        elif len(result.value) > 5:
-            data.error = '!skip'
-        else:
-            # TODO test MX label validity
-            context = ssl.create_default_context()
-            context.options |= ssl.OP_NO_TLSv1
-            context.options |= ssl.OP_NO_TLSv1_1
-            # we do our own hostname checking
-            context.check_hostname = False
-            conn = smtplib.SMTP(mx, port=25, timeout=30)
-            conn.starttls(context=context)
-            cert = conn.sock.getpeercert()
+        # TODO test MX label validity
+        context = ssl.create_default_context()
+        context.options |= ssl.OP_NO_TLSv1
+        context.options |= ssl.OP_NO_TLSv1_1
+        # we do our own hostname checking
+        context.check_hostname = False
+        # TODO: send SNI while using an IP address?
+        conn = smtplib.SMTP(mx, port=25, timeout=30)
+        conn.starttls(context=context)
+
+        # TODO: ignore expiration date when using DANE, as per RFC7672 section
+        # 3.1.1.
+        cert = conn.sock.getpeercert()
+        cert_der = conn.sock.getpeercert(True)
+        cert_x509 = load_der_x509_certificate(cert_der, default_backend())
+        cert_pk = cert_x509.public_key().public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+        data.dane_hash_cert = hashlib.sha256(cert_der).hexdigest()
+        data.dane_hash_spki = hashlib.sha256(cert_pk).hexdigest()
 
         # TODO check for expired certificate?
 
+        names = set()
         for san in cert.get('subjectAltName', ()):
             if san[0] == 'DNS':
                 names.add(san[1])
+
+        def domainsortkey(n):
+            n = n.split('.')
+            n.reverse()
+            return n
+        data.certNames = sorted(names, key=domainsortkey)
+    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.Timeout):
+        data.error = '!dns-error'
     except ssl.SSLError as e:
         data.error = e.reason
     except (TimeoutError, socket.timeout):
@@ -451,16 +590,6 @@ def checkMailserver(result, mx, preference, policyNames):
         # try to close the connection
         if conn is not None:
             conn.close()
-
-    if cert is not None and not names and not data.error:
-        # does this actually happen?
-        data.error = '!unknown'
-
-    def domainsortkey(n):
-        n = n.split('.')
-        n.reverse()
-        return n
-    data.certNames = sorted(names, key=domainsortkey)
 
     if not data.valid:
         result.error('mx-fail')
@@ -526,19 +655,39 @@ def makeReport(domain):
     checkPolicyFile(report.policy, domain)
     yield renderSubReport(report, 'policy', report.policy.rating)
 
+    report.mx.value = {'servers': []}
     mailservers = getMX(report.mx, domain)
-    if mailservers is not None:
-        report.mx.value = []
+    if mailservers is not None: # DNS request was successful
+        with app.app_context():
+            html = flask.render_template('result-dane-mx.html',
+                                         verdict='ok' if report.mx.value.get('dnssec') else 'fail')
+        yield makeEventSource({
+            'reportName': 'dane',
+            'part':       html})
 
         policyNames = report.policy.value.get('info', {}).get('mx', None)
         yield renderSubReport(report, 'mx', None)
         for mx, preference in mailservers:
             serverResult = checkMailserver(report.mx, mx, preference, policyNames)
+            report.mx.value['servers'].append(serverResult)
+
             with app.app_context():
-                html = flask.render_template('result-mx-server.html', mx=serverResult)
+                html = flask.render_template('result-dane-server.html',
+                                             mx=serverResult)
+            yield makeEventSource({
+                'reportName': 'dane',
+                'part':       html})
+
+            with app.app_context():
+                html = flask.render_template('result-mx-server.html', server=serverResult)
             yield makeEventSource({
                 'reportName': 'mx',
                 'part':       html})
+
+        yield makeEventSource({
+            'reportName': 'dane',
+            'verdict': report.verdictDANE})
+
         yield makeEventSource({
             'reportName': 'mx',
             'verdict': VERDICT_MAP[report.mx.rating]})
