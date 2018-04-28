@@ -61,6 +61,14 @@ class Result:
             raise ValueError('Result.error: error has already been set')
         self.errorName = message
         self.errorValue = value
+        return None
+
+    def stashError(self):
+        ''' Temporarily remove this error. May be re-installed with result.error(**err). '''
+        err = (self.errorName, self.errorValue)
+        self.errorName = None
+        self.errorValue = None
+        return err
 
     def warn(self, message, value=None):
         self.warnings.append({'message': message, 'value': value})
@@ -289,13 +297,13 @@ def retrieveTXTRecord(result, domain, prefix, magic):
     return dnsPolicies[0]
 
 def checkDNS_STS(result, domain):
-    dnsPolicy = retrieveTXTRecord(result, domain, '_mta-sts', 'v=STSv1;')
-    if dnsPolicy is None:
+    record = retrieveTXTRecord(result, domain, '_mta-sts', 'v=STSv1;')
+    if record is None:
         # there was an error
         return
-    result.value = dnsPolicy
+    result.value = record
 
-    fields = list(map(lambda s: s.strip(' \t'), re.split('[ \t]*;[ \t]*', dnsPolicy)))
+    fields = list(map(lambda s: s.strip(' \t'), re.split('[ \t]*;[ \t]*', record)))
 
     if fields[0] != 'v=STSv1':
         # already covered in dns:no-valid-txt-record but checking it anyway
@@ -318,15 +326,29 @@ def checkDNS_STS(result, domain):
 
 
 def checkDNS_TLSRPT(result, domain):
-    dnsPolicy = retrieveTXTRecord(result, domain, '_smtp-tlsrpt', 'v=TLSRPTv1;')
-    if dnsPolicy is None:
+    record = retrieveTXTRecord(result, domain, '_smtp._tls', 'v=TLSRPTv1;')
+    if record is None and result.errorName == 'no-domain':
+        # No _smtp._tls domain found, let's try the old one: _smtp-tlsrpt.
+        # Stash away the current error to be restored if the old domain name
+        # also doesn't exist.
+        err = result.stashError()
+        record = retrieveTXTRecord(result, domain, '_smtp-tlsrpt', 'v=TLSRPTv1;')
+        if record is None:
+            # Cannot find the old or new style domain name.
+            # Restore previous error.
+            result.stashError() # clear new error
+            return result.error(*err) # restore old error
+        else:
+            # Only the old domain name exists. Give a specific error.
+            result.error('old-prefix', domain)
+    if record is None:
         # an error was returned
         return
     result.value = {
-        'raw': dnsPolicy,
+        'raw': record,
     }
 
-    fields = re.split('[ \t]*;[ \t]*', dnsPolicy) # split at field-delim
+    fields = re.split('[ \t]*;[ \t]*', record) # split at field-delim
 
     if fields[0] != 'v=TLSRPTv1':
         # already covered in no-valid-txt-record but checking it anyway

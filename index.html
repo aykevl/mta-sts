@@ -32,13 +32,13 @@
 			<h2>Background</h2>
 			<p><a href="https://datatracker.ietf.org/doc/draft-ietf-uta-mta-sts/">MTA-STS</a> is a new standard (<a href="https://github.com/mrisher/smtp-sts">still in development</a>) that makes it possible to send downgrade-resistant email over SMTP. In that sense, it is like an alternative to DANE. It does this by piggybacking on the browser Certificate Authority model.</p>
 
-			<p>Note: this validator is based on the <a href="https://github.com/mrisher/smtp-sts/blob/master/mta-sts.md">current draft specification</a> as of april 4, 2018. It is likely some parts of it will change before the final publication. To see which changes haven't been included in this validator yet, see <a href="https://github.com/mrisher/smtp-sts/compare/ca68112f758e05f8f33b48badae602246b2c33f2...master">this diff</a>. The currently implemented specification is <a href="https://tools.ietf.org/html/draft-ietf-uta-mta-sts-15">MTA-STS draft 15</a> and <a href="https://tools.ietf.org/html/draft-ietf-uta-smtp-tlsrpt-17">SMTP-TLSRPT draft 17</a>.</p>
+			<p>Note: this validator is based on the <a href="https://github.com/mrisher/smtp-sts/blob/master/mta-sts.md">current draft specification</a> as of april 4, 2018. It is likely some parts of it will change before the final publication. To see which changes haven't been included in this validator yet, see <a href="https://github.com/mrisher/smtp-sts/compare/ca68112f758e05f8f33b48badae602246b2c33f2...master">this diff</a>. The currently implemented specification is <a href="https://tools.ietf.org/html/draft-ietf-uta-mta-sts-15">MTA-STS draft 15</a> and <a href="https://tools.ietf.org/html/draft-ietf-uta-smtp-tlsrpt-18">SMTP-TLSRPT draft 18</a>.</p>
 
 			<p class="mb-0">To enable Strict Transport Security on your mailserver configure the following things:</p>
 
 			<ul>
 				<li>Check that your host has <a href="https://en.internet.nl/test-mail/">properly configured STARTTLS</a></li>
-				<li>Add a TLSRPT DNS TXT record at <code>_smtp-tlsrpt</code> on your domain, e.g. <code>_smtp-tlsrpt.example.com</code>, with something like <code>v=TLSRPTv1; rua=mailto:mta-sts@example.com</code>.</li>
+				<li>Add a TLSRPT DNS TXT record at <code>_smtp._tls</code> on your domain, e.g. <code>_smtp._tls.example.com</code>, with something like <code>v=TLSRPTv1; rua=mailto:mta-sts@example.com</code>.</li>
 				<li>Add a MTA-STS DNS TXT record at <code>_mta-sts</code> on your domain, e.g. <code>_mta-sts.example.com</code>, with something like <code>v=STSv1; id=20160831085700Z</code>.</li>
 				<li>Add a subdomain <code>mta-sts</code> to your domain (note the lack of an underscore) and serve a policy file on <code>https://mta-sts.example.com/.well-known/mta-sts.txt</code>. Here is an example policy file:
 					<pre class="ml-4 mt-2 mb-2">
