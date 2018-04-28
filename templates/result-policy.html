@@ -53,7 +53,7 @@ No <code>max_age</code> field was specified. It must be set to the amount of sec
 {% elif report.policy.errorName == "invalid-max-age" %}
 Invalid <code>max_age</code> field was specified: <code>{{ report.policy.errorValue }}</code>. It must be a non-negative integer. The suggested amount is at least in the order of weeks.
 {% elif report.policy.errorName == "short-max-age" %}
-Very short <code>max_age</code> field specified. It is less than a day with {{ report.policy.errorValue }} seconds. The suggested amount is at least in the order of weeks.
+Very short <code>max_age</code> field specified. It is less than a day with {{ report.policy.errorValue }} seconds. The suggested amount is at least in the order of weeks (this validator uses 28 days).
 {% elif report.policy.errorName == "no-mx-entries" %}
 No <code>mx</code> fields specified. Indicates the hostnames (Common Name or SAN) for which the mail server certificate is valid. At least one of the hostnames specified in the policy must be present in the certificate.
 {% elif report.policy.errorName == "invalid-mx-entry" %}
