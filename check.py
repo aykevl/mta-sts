@@ -441,7 +441,8 @@ def checkPolicyFile(result, domain):
         if ':' not in line:
             result.warn('invalid-line', line)
             continue
-        if not re.match('^[ \t]*[a-zA-Z0-9][a-zA-Z0-9_.-]{0,31}:[ \t]*[\x21-\x3a\x3c\x3e-\x7e]{1,}[ \t]*', line):
+        # Regex has been derived from the ABNF in the spec.
+        if not re.match('^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,31}:[ \t]*[\x21-\x3a\x3c\x3e-\x7e]{1,}[ \t]*', line):
             result.warn('invalid-line', line)
             continue
         key, value = line.split(':', 1)
