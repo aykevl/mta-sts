@@ -225,7 +225,7 @@ class Report:
 
     @property
     def ratingTLSRPT(self):
-        if self.errorName is not None:
+        if self.errorName is not None or self.tlsrpt.errorName is not None:
             rating = 1 # error
         elif 'info' in self.policy.value and self.policy.value['info'].get('mode') not in {'enforce', 'testing'}:
             rating = 5 # TLSRPT is not enabled
