@@ -692,7 +692,8 @@ def makeReport(domain):
     if mailservers is not None: # DNS request was successful
         with app.app_context():
             html = flask.render_template('result-dane-mx.html',
-                                         verdict='ok' if report.mx.value.get('dnssec') else 'fail')
+                                         verdict='ok' if report.mx.value.get('dnssec') else 'fail',
+                                         domain=domain)
         yield makeEventSource({
             'reportName': 'dane',
             'part':       html})
