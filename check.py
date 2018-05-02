@@ -563,7 +563,8 @@ def checkMailserver(result, mx, preference, policyNames):
             if not isinstance(rr, dns.rdtypes.ANY.TLSA.TLSA):
                 continue
             data.tlsa_records.append(rr)
-    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.Timeout):
+    except dns.exception.DNSException:
+        # TODO: report this as a DNS error, not 'TLSA not present'
         pass
 
     conn = None
