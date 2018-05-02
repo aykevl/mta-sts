@@ -266,6 +266,8 @@ def retrieveTXTRecord(result, domain, prefix, magic):
         return result.error('no-answer', fullDomain)
     except dns.resolver.Timeout:
         return result.error('timeout', fullDomain)
+    except dns.exception.DNSException as e:
+        return result.error('dns-catchall', e)
 
     # From the RFC draft (MTA-STS):
     #     If multiple TXT records for _mta-sts are returned by the resolver,

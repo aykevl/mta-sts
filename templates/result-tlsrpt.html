@@ -39,6 +39,8 @@ Invalid version prefix. Must be <code>v=TLSRPTv1</code>, not <code>{{ report.tls
 Invalid "rua" field <code>{{ report.tlsrpt.errorValue }}</code>. It must either be an URL or an email address prefixed by <code>mailto:</code>. For example, <code>rua=https://reporting.example.com/v1/tlsrpt</code> or <code>rua=mailto:reports@example.com</code>. Additionally, it must not contain raw commas or exclamation points, these have to be encoded.
 {% elif report.tlsrpt.errorName == "old-prefix" %}
 You are using the old-style <code>_smtp-tlsrpt.</code> domain prefix for the TXT record. This prefix has been changed to <code>_smtp._tls.</code> in the latest draft. Please move the above TXT record to <code>_smtp._tls.{{ report.tlsrpt.errorValue }}</code>.
+{% elif report.tlsrpt.errorName == "dns-catchall" %}
+Unknown error: {{ report.tlsrpt.errorValue }}
 {% else %}
 Unknown error: <code>{{ report.tlsrpt.errorName }}</code>.
 {% endif %}{# report.tlsrpt.errorName #}
