@@ -36,6 +36,8 @@ Other error while requesting <code>{{ report.policy.errorValue }}</code>.
 Polcy file is very big: {{ warning.value }}kB. It is suggested in the spec that the file shouldn't be bigger than 64kB.
 {% elif report.policy.errorName == "decode-error" %}
 Failed to decode the policy file from ASCII. The standard doesn't say anything about the encoding, but this is probably an error.
+{% elif report.policy.errorName == "no-content-type" %}
+No Content-Type header. It must be "text/plain".
 {% elif report.policy.errorName == "invalid-content-type" %}
 Invalid Content-Type header <code>{{ report.policy.errorValue }}</code>. It must be "text/plain".
 {% elif report.policy.errorName == "no-version" %}

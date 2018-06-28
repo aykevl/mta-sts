@@ -442,6 +442,8 @@ def checkPolicyFile(result, domain):
     result.value['data'] = data
 
     contentType = res.getheader('Content-Type')
+    if contentType is None:
+        return result.error('no-content-type')
     mimetype, options = cgi.parse_header(contentType)
     if mimetype != 'text/plain':
         return result.error('invalid-content-type', contentType)
