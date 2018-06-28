@@ -32,7 +32,7 @@
 			<h2>Background</h2>
 			<p><a href="https://datatracker.ietf.org/doc/draft-ietf-uta-mta-sts/">MTA-STS</a> is a new standard (<a href="https://github.com/mrisher/smtp-sts">still in development</a>) that makes it possible to send downgrade-resistant email over SMTP. In that sense, it is like an alternative to DANE. It does this by piggybacking on the browser Certificate Authority model.</p>
 
-			<p>Note: this validator is based on the <a href="https://github.com/mrisher/smtp-sts/blob/master/mta-sts.md">current draft specification</a> as of april 4, 2018. It is likely some parts of it will change before the final publication. To see which changes haven't been included in this validator yet, see <a href="https://github.com/mrisher/smtp-sts/compare/ca68112f758e05f8f33b48badae602246b2c33f2...master">this diff</a>. The currently implemented specification is <a href="https://tools.ietf.org/html/draft-ietf-uta-mta-sts-15">MTA-STS draft 15</a> and <a href="https://tools.ietf.org/html/draft-ietf-uta-smtp-tlsrpt-18">SMTP-TLSRPT draft 18</a>.</p>
+			<p>Note: this validator is based on the <a href="https://github.com/mrisher/smtp-sts/blob/master/mta-sts.md">current draft specification</a> as of june 28, 2018. Some parts might change before the final publication. To see which changes haven't been included in this validator yet, see <a href="https://github.com/mrisher/smtp-sts/compare/ea7e17ed3978c22fccdd3a7d722b32e907840514...master">this diff</a>. The currently implemented specification is <a href="https://tools.ietf.org/html/draft-ietf-uta-mta-sts-21">MTA-STS draft 21</a> and <a href="https://tools.ietf.org/html/draft-ietf-uta-smtp-tlsrpt-23">SMTP-TLSRPT draft 23</a>.</p>
 
 			<p class="mb-0">To enable Strict Transport Security on your mailserver configure the following things:</p>
 
@@ -46,10 +46,10 @@ version: STSv1
 mode: enforce
 max_age: 10368000
 mx: mail.example.com
-mx: .example.net
+mx: *.example.net
 mx: backupmx.example.com</pre>
 				</li>
-				<li>Test this mail domain using this or another validator.</li>
+				<li>Test this mail domain using this or <a href="https://www.hardenize.com/">another validator</a>.</li>
 			</ul>
 
 			<p>Created by: <a href="https://aykevl.nl/" rel="author">Ayke</a> (<a href="https://github.com/aykevl/mta-sts">source code</a>). If you encounter any errors, you can create a <a href="https://github.com/aykevl/mta-sts/issues/new">bug report</a> or alternatively <a href="https://aykevl.nl/about">send me a personal message</a>.

@@ -75,8 +75,6 @@ Unknown error: {{ report.policy.errorName }}.
 		Polcy file is quite big: {{ warning.value }}kB. It is suggested the file shouldn't be bigger than 64kB, but this is already a large file.
 		{% elif warning.message == "invalid-line" %}
 		Policy file contains an invalid line: <code>{{ warning.value }}</code>. Note that the current specification does not allow empty lines.
-		{% elif warning.message == "invalid-linefeed-unix" %}
-		Policy file is written using an LF (Unix-style) newline, not CRLF (internet/Windows-style) newlines. The current specification does not allow using LF newlines, it requires CRLF newlines.
 		{% elif warning.message == "invalid-linefeed-other" %}
 		Policy file is written using nonstandard newlines, not CRLF (internet/Windows-style) newlines. The current specification requires CRLF newlines.
 		{% elif warning.message == "duplicate-key" %}

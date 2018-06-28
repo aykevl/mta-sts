@@ -23,8 +23,8 @@ from cryptography.hazmat.backends import default_backend
 # See e.g. this page how to deploy:
 # http://flask.pocoo.org/docs/0.12/deploying/uwsgi/
 
-domainPattern   = re.compile(   '^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$')
-mxDomainPattern = re.compile('^\.?(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$')
+domainPattern   = re.compile(       '^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z]|[a-z][a-z0-9\-]*[a-z0-9])$')
+mxDomainPattern = re.compile('^(\*\.)?(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z]|[a-z][a-z0-9\-]*[a-z0-9])$')
 
 # Set up DNS resolver that requests validation
 resolver = dns.resolver.Resolver()
@@ -90,7 +90,6 @@ class MailserverResult:
         self.name = name
         self.preference = preference
         self.policyNames = policyNames
-        self.certNames = None
         self.dnssec_a = None
         self.dnssec_tlsa = None
         self.tlsa_records = []
@@ -100,9 +99,9 @@ class MailserverResult:
 
     @property
     def valid(self):
-        if self.policyNames is None or self.certNames is None:
+        if self.policyNames is None:
             return False
-        return certMatches(self.certNames, self.policyNames)
+        return policyMatches(self.name, self.policyNames)
 
     @property
     def verdict(self):
@@ -453,13 +452,10 @@ def checkPolicyFile(result, domain):
         # Normally you would just 'continue' on empty lines, but in this
         # case we want to validate there are no empty lines before EOF.
         lines = lines[:-1]
-    has_lf_lines = False
     has_other_newlines = False
     for line in lines:
-        if line.endswith('\n') and not line.endswith('\r\n'):
-            has_lf_lines = True
         bare_line = line.rstrip('\r\n')
-        if line not in [bare_line, bare_line+'\r\n', bare_line+'\n']:
+        if line not in [bare_line, bare_line+'\n', bare_line+'\r', bare_line+'\r\n']:
             # TODO this is probably a strange newline, like \v or \u2028
             print('weird newline:', repr(line))
             has_other_newlines = True
@@ -468,6 +464,7 @@ def checkPolicyFile(result, domain):
             result.warn('invalid-line', line)
             continue
         # Regex has been derived from the ABNF in the spec.
+        # TODO: allow UTF-8 chars
         if not re.match('^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,31}:[ \t]*[\x21-\x3a\x3c\x3e-\x7e]{1,}[ \t]*', line):
             result.warn('invalid-line', line)
             continue
@@ -480,8 +477,6 @@ def checkPolicyFile(result, domain):
                 result.warn('duplicate-key', {'key': key, 'value': value, 'line': line})
                 continue
             info[key] = value
-    if has_lf_lines:
-        result.warn('invalid-linefeed-unix')
     if has_other_newlines:
         result.warn('invalid-linefeed-other')
 
@@ -516,11 +511,16 @@ def checkPolicyFile(result, domain):
     if 'mx' not in info or len(info['mx']) < 1:
         return result.error('no-mx-entries')
     for mx in info['mx']:
-        # ABNF:
-        #     1*(ALPHA / DIGIT / "_" / "-" / ".")
-        # But they must be valid domain names (optionally starting with a dot)
-        # so check that here.
-        if not mxDomainPattern.match(mx):
+        # ABNF, according to the MTA-STS spec:
+        # sts-policy-mx-value      = ["*."] *(sts-policy-mx-label ".")
+        #                            sts-policy-mx-toplabel
+        # sts-policy-mx-label      = sts-policy-alphanum |
+        #                            sts-policy-alphanum *(sts-policy-alphanum | "-")
+        #                            sts-policy-alphanum
+        # sts-policy-mx-toplabel   = ALPHA | ALPHA *(sts-policy-alphanum | "-")
+        #                            sts-policy-alphanum
+        # sts-policy-alphanum      = ALPHA | DIGIT
+        if not mxDomainPattern.match(mx.lower()):
             return result.error('invalid-mx-entry', mx)
 
     for key, value in info.items():
@@ -550,7 +550,7 @@ def getMX(result, domain):
 def checkMailserver(result, mx, preference, policyNames):
     data = MailserverResult(mx, preference, policyNames)
 
-    if not domainPattern.match(mx):
+    if not domainPattern.match(mx.lower()):
         data.error = '!invalid-mx'
     elif len(result.value['servers']) > 5:
         data.error = '!skip'
@@ -578,42 +578,27 @@ def checkMailserver(result, mx, preference, policyNames):
         # TODO: try all other IP addresses returned
         data.dnssec_a = bool(answers.response.flags & dns.flags.AD)
 
-        cert = {}
         # TODO test MX label validity
         context = ssl.create_default_context()
         context.options |= ssl.OP_NO_TLSv1
         context.options |= ssl.OP_NO_TLSv1_1
-        # we do our own hostname checking
-        context.check_hostname = False
         # TODO: send SNI while using an IP address?
         conn = smtplib.SMTP(mx, port=25, timeout=30)
         conn.starttls(context=context)
 
         # TODO: ignore expiration date when using DANE, as per RFC7672 section
         # 3.1.1.
-        cert = conn.sock.getpeercert()
         cert_der = conn.sock.getpeercert(True)
         cert_x509 = load_der_x509_certificate(cert_der, default_backend())
         cert_pk = cert_x509.public_key().public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
         data.dane_hash_cert = hashlib.sha256(cert_der).hexdigest()
         data.dane_hash_spki = hashlib.sha256(cert_pk).hexdigest()
-
-        # TODO check for expired certificate?
-
-        names = set()
-        for san in cert.get('subjectAltName', ()):
-            if san[0] == 'DNS':
-                names.add(san[1])
-
-        def domainsortkey(n):
-            n = n.split('.')
-            n.reverse()
-            return n
-        data.certNames = sorted(names, key=domainsortkey)
     except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.Timeout):
         data.error = '!dns-error'
     except ssl.SSLError as e:
         data.error = e.reason
+    except ssl.CertificateError as e:
+        data.error = str(e)
     except (TimeoutError, socket.timeout):
         data.error = '!timeout'
     except smtplib.SMTPException as e:
@@ -629,31 +614,16 @@ def checkMailserver(result, mx, preference, policyNames):
         result.error('mx-fail')
     return data
 
-# algorithm from Appendix 2 of the draft (function isWildcardMatch and
-# certMatches)
-
-def isWildcardMatch(pat, host):
-    # Literal matches are true.
-    if pat == host:
-        return True
-    if pat[0] == '.':
-        parts = host.split('.', 1)
-        if len(parts) > 1 and parts[1] == pat[1:]:
+# algorithm from Appendix 2 of the draft (function policyMatches)
+def policyMatches(candidate, policyNames):
+    for mx in policyNames:
+        if mx == candidate:
             return True
-    return False
-
-def certMatches(certNames, policyNames):
-    for san in certNames:
-        if len(san) < 2:
-            # very likely invalid
-            continue
-        for mx in policyNames:
-            if san[0] == '*':
-                if san[1] != '.':
-                    # Invalid wildcard!
-                    continue
-                san = san[1:]
-            if isWildcardMatch(san, mx) or isWildcardMatch(mx, san):
+        # Wildcard matches only the leftmost label.
+        # Wildcards must always be followed by a '.'.
+        if mx[0] == '*':
+            parts = candidate.split('.', 1) # Split on the first '.'.
+            if len(parts) > 1 and parts[1] == mx[2:]:
                 return True
     return False
 
@@ -675,7 +645,7 @@ def makeReport(domain):
     report = Report(domain)
 
     # See: https://stackoverflow.com/a/106223/559350
-    if not domainPattern.match(domain):
+    if not domainPattern.match(domain.lower()):
         report.error('invalid-domain', domain)
         yield renderSummary(report)
         return
