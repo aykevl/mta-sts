@@ -113,7 +113,7 @@ class MailserverResult:
 
     @property
     def verdict(self):
-        if self.policyNames is None:
+        if self.policyNames is None and not self.error:
             return 'none'
         return {True: 'ok', False: 'fail'}[self.valid]
 
