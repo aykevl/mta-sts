@@ -19,12 +19,9 @@
 	<code>{{ server.error }}</code>
 	{% endif %}{# server.error switch #}
 	<br/>
+	{% elif not server.policyNames %}
+	Cannot test due to error in policy.
+	{% elif not server.matchesPolicy %}
+	<strong>Error</strong>: DNS name does not match policy.
 	{% endif %}{# server.error #}
-
-	{% if server.certNames %}
-	{% for name in server.certNames %}
-	<code class="text-nowrap">{{ name }}</code>
-	{% endfor %}
-	</p>
-	{% endif %}
 </dd>

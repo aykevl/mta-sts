@@ -102,15 +102,19 @@ class MailserverResult:
         self.dane_hash_spki = None
 
     @property
-    def valid(self):
-        if self.policyNames is None:
-            return False
-        if self.error:
-            return False
+    def matchesPolicy(self):
         return policyMatches(self.name, self.policyNames)
 
     @property
+    def valid(self):
+        if self.error:
+            return False
+        return self.matchesPolicy
+
+    @property
     def verdict(self):
+        if self.policyNames is None:
+            return 'none'
         return {True: 'ok', False: 'fail'}[self.valid]
 
     @property
@@ -622,6 +626,8 @@ def checkMailserver(result, mx, preference, policyNames):
 
 # algorithm from Appendix 2 of the draft (function policyMatches)
 def policyMatches(candidate, policyNames):
+    if policyNames is None:
+        return False
     for mx in policyNames:
         if mx == candidate:
             return True
