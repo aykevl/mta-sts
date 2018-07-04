@@ -105,6 +105,8 @@ class MailserverResult:
     def valid(self):
         if self.policyNames is None:
             return False
+        if self.error:
+            return False
         return policyMatches(self.name, self.policyNames)
 
     @property
