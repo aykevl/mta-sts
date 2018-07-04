@@ -7,6 +7,12 @@
 	<strong>Error</strong>:
 	{% if server.error == "!invalid-mx" %}
 	Invalid MX.
+	{% elif server.error == "!dns-nxdomain" %}
+	Host not found.
+	{% elif server.error == "!dns-noanswer" %}
+	Could not find <code>A</code> record on the server.
+	{% elif server.error == "!dns-timeout" %}
+	Timeout.
 	{% elif server.error == "!timeout" %}
 	Timeout while connecting to the mail server.
 	{% elif server.error == "!skip" %}

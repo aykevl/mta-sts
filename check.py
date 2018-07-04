@@ -603,8 +603,12 @@ def checkMailserver(result, mx, preference, policyNames):
         cert_pk = cert_x509.public_key().public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
         data.dane_hash_cert = hashlib.sha256(cert_der).hexdigest()
         data.dane_hash_spki = hashlib.sha256(cert_pk).hexdigest()
-    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.Timeout):
-        data.error = '!dns-error'
+    except dns.resolver.NXDOMAIN:
+        data.error = '!dns-nxdomain'
+    except dns.resolver.NoAnswer:
+        data.error = '!dns-noanswer'
+    except dns.resolver.Timeout:
+        data.error = '!dns-timeout'
     except ssl.SSLError as e:
         data.error = e.reason
     except ssl.CertificateError as e:
