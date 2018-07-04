@@ -21,6 +21,8 @@
 	Unknown.
 	{% elif server.error == "NO_PROTOCOLS_AVAILABLE" %}
 	This SMTP server does not support modern TLS protocols. Client support for TLS v1.2 or higher is required in MTA-STS.
+	{% elif server.error == "CERTIFICATE_VERIFY_FAILED" %}
+	Certificate validation has failed. Check whether you're using a correct CA-issued certificate in the mail server.
 	{% else %}
 	<code>{{ server.error }}</code>
 	{% endif %}{# server.error switch #}
