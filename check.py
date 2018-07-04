@@ -28,6 +28,7 @@ mxDomainPattern = re.compile('^(\*\.)?(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)
 
 # Set up DNS resolver that requests validation
 resolver = dns.resolver.Resolver()
+resolver.nameservers = ['8.8.8.8']
 resolver.edns = 0
 resolver.ednsflags = dns.flags.DO
 
