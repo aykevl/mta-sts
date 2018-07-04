@@ -20,6 +20,9 @@ from cryptography.hazmat.primitives import serialization # Debian: python3-crypt
 from cryptography.x509 import load_der_x509_certificate
 from cryptography.hazmat.backends import default_backend
 
+NAMESERVERS = ['8.8.8.8']
+SMTP_LOCAL_HOSTNAME = None
+
 # See e.g. this page how to deploy:
 # http://flask.pocoo.org/docs/0.12/deploying/uwsgi/
 
@@ -28,7 +31,7 @@ mxDomainPattern = re.compile('^(\*\.)?(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)
 
 # Set up DNS resolver that requests validation
 resolver = dns.resolver.Resolver()
-resolver.nameservers = ['8.8.8.8']
+resolver.nameservers = NAMESERVERS
 resolver.edns = 0
 resolver.ednsflags = dns.flags.DO
 
@@ -584,7 +587,7 @@ def checkMailserver(result, mx, preference, policyNames):
         context.options |= ssl.OP_NO_TLSv1
         context.options |= ssl.OP_NO_TLSv1_1
         # TODO: send SNI while using an IP address?
-        conn = smtplib.SMTP(mx, port=25, timeout=30)
+        conn = smtplib.SMTP(mx, port=25, timeout=30, local_hostname=SMTP_LOCAL_HOSTNAME)
         conn.starttls(context=context)
 
         # TODO: ignore expiration date when using DANE, as per RFC7672 section
