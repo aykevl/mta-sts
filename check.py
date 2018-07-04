@@ -13,7 +13,7 @@ import re
 import hashlib
 
 import flask # Debian: python3-flask
-from flask_limiter import Limiter # pip3: Flask-Limiter
+from flask_limiter import Limiter # Debian: python3-flask-limiter or pip3: Flask-Limiter
 from flask_limiter.util import get_remote_address
 
 from cryptography.hazmat.primitives import serialization # Debian: python3-cryptography
