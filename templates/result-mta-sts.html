@@ -1,11 +1,6 @@
-<p>
-	Policy:
-	{% if report.sts.value %}
-		<code>{{ report.sts.value }}</code>
-	{% else %}
-		none
-	{% endif %}
-</p>
+{% if report.sts.value %}
+<p>Policy: <code>{{ report.sts.value }}</code></p>
+{% endif %}
 
 <p>
 {% if report.sts.errorName %}

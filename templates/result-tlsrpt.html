@@ -1,11 +1,7 @@
-<p>
-	Policy:
-	{% if report.tlsrpt.value %}
-		<code>{{ report.tlsrpt.value.raw }}</code>
-	{% else %}
-		none
-	{% endif %}
-</p>
+{% if report.tlsrpt.value %}
+<p>Policy: <code>{{ report.tlsrpt.value.raw }}</code></p>
+{% endif %}
+
 <p>
 {% if report.tlsrpt.errorName %}
 <strong>Error</strong>:
