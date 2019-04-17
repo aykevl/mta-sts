@@ -26,8 +26,8 @@ SMTP_LOCAL_HOSTNAME = None
 # See e.g. this page how to deploy:
 # http://flask.pocoo.org/docs/0.12/deploying/uwsgi/
 
-domainPattern   = re.compile(       '^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z]|[a-z][a-z0-9\-]*[a-z0-9])$')
-mxDomainPattern = re.compile('^(\*\.)?(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z]|[a-z][a-z0-9\-]*[a-z0-9])$')
+domainPattern   = re.compile(       '^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$')
+mxDomainPattern = re.compile('^(\*\.)?(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$')
 
 # Set up DNS resolver that requests validation
 resolver = dns.resolver.Resolver()
@@ -522,14 +522,11 @@ def checkPolicyFile(result, domain):
         return result.error('no-mx-entries')
     for mx in info['mx']:
         # ABNF, according to the MTA-STS spec:
-        # sts-policy-mx-value      = ["*."] *(sts-policy-mx-label ".")
-        #                            sts-policy-mx-toplabel
-        # sts-policy-mx-label      = sts-policy-alphanum |
-        #                            sts-policy-alphanum *(sts-policy-alphanum | "-")
-        #                            sts-policy-alphanum
-        # sts-policy-mx-toplabel   = ALPHA | ALPHA *(sts-policy-alphanum | "-")
-        #                            sts-policy-alphanum
-        # sts-policy-alphanum      = ALPHA | DIGIT
+        #   sts-policy-mx-value      = ["*."] Domain
+        #   Domain                   = sub-domain *("." sub-domain)
+        #   sub-domain               = Let-dig [Ldh-str]
+        #   Let-dig                  = ALPHA / DIGIT
+        #   Ldh-str                  = *( ALPHA / DIGIT / "-" ) Let-dig
         if not mxDomainPattern.match(mx.lower()):
             return result.error('invalid-mx-entry', mx)
 
