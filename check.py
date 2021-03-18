@@ -513,7 +513,7 @@ def checkPolicyFile(result, domain):
     except ValueError:
         return result.error('invalid-max-age', info['max_age'])
     if max_age < 86400: # 1 day
-        return result.error('short-max-age', max_age/86400)
+        return result.error('short-max-age', max_age)
     if max_age < 2419200 and info.get('mode', 'testing') != 'testing': # 28 days
         result.warn('short-max-age', max_age/86400)
     if max_age > 31557600:
